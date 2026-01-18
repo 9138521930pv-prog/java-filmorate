@@ -18,6 +18,7 @@ public class FilmControllerTests {
     private MockMvc mockMvc;
 
     private static final ObjectMapper objectMapper = new ObjectMapper();
+
     protected static String asJsonString(final Object obj) {
         try {
             return objectMapper.writeValueAsString(obj);
@@ -25,6 +26,7 @@ public class FilmControllerTests {
             throw new RuntimeException("Ошибка преобразования объекта в JSON", e);
         }
     }
+
 // Добавление фильма
     @Test
     void testCreateFilmSuccessfully() throws Exception {
