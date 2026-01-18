@@ -1,11 +1,15 @@
 package ru.yandex.practicum.filmorate;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import ru.yandex.practicum.filmorate.controller.FilmController;
+import ru.yandex.practicum.filmorate.controller.UserController;
+import ru.yandex.practicum.filmorate.model.User;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -17,7 +21,15 @@ public class UserControllerTests {
     @Autowired
     private MockMvc mockMvc;
 
-// Добавление пользователя
+    @Autowired
+    private UserController userController;
+
+    @BeforeEach
+    void setUp() {
+        userController.clear(); // Сброс перед каждым тестом
+    }
+
+    // Добавление пользователя
     @Test
     void testCreateUserSuccessfully() throws Exception {
         mockMvc.perform(post("/users")

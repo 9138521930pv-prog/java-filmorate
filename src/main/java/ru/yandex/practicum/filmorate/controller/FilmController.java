@@ -79,4 +79,10 @@ public class FilmController {
                 .body(updatedFilm);
 
     }
+
+    public void clear() {
+        films.clear();
+        nextId = 1;
+        log.info("Коллекция фильмов очищена, nextId обнулён.");
+    }
 }

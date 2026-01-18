@@ -79,4 +79,10 @@ public class UserController {
                 .header("Content-Type", "application/json; charset=UTF-8")
                 .body(updatedUser);
     }
+
+    public void clear() {
+        users.clear();
+        nextId = 1;
+        log.info("Коллекция фильмов очищена, nextId обнулён.");
+    }
 }
