@@ -36,7 +36,7 @@ public class InMemoryFilmStorage implements FilmStorage {
     public Film removeFilm(Long filmId) {
         Film film = films.get(filmId);
         if (film == null) {
-            throw new ValidationException("Попытка удаления фильма. Фильм с ID: " + filmId + " не найден");
+            throw new NotFoundException("Попытка удаления фильма. Фильм с ID: " + filmId + " не найден");
         }
         log.info("Фильм с ID: {} успешно удален.", filmId);
         return films.remove(filmId);
@@ -70,7 +70,7 @@ public class InMemoryFilmStorage implements FilmStorage {
 
         Film film = films.get(filmId);
         if (film == null) {
-            throw new ValidationException("Фильм с ID: " + filmId + " не найден");
+            throw new NotFoundException("Фильм с ID: " + filmId + " не найден");
         }
 
         if (updatedFilm.getReleaseDate() != null

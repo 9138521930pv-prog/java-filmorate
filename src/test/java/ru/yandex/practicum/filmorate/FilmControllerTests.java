@@ -141,10 +141,19 @@ public class FilmControllerTests {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"Очень новый фильм\",\"duration\":\"125\",\"description\":\"Хороший фильм\",\"releaseDate\":\"2025-01-01\"}"))
                 .andExpect(status().isCreated());
-        mockMvc.perform(get("/films/1"))
+        mockMvc.perform(get("/films/2"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(1))
                 .andExpect(jsonPath("$.name").value("Новый фильм"));
+    }
+
+    // Запрос добавление фильма с ID
+    @Test
+    void testReturnRequestWhenGetOneFilmsID() throws Exception {
+        mockMvc.perform(put("/films")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"id\":\"1\",\"name\":\"Новый фильм\",\"duration\":\"120\",\"description\":\"Хороший фильм\",\"releaseDate\":\"1990-01-01\"}"))
+                .andExpect(status().isNotFound());
     }
 
 // Редактирование пользователя по ID
