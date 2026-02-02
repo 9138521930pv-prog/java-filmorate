@@ -81,7 +81,7 @@ public class UserControllerTests {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content("{\"email\":\"test@test.ru\",\"login\":\"  \",\"birthday\":\"1990-01-01\"}"))
             .andExpect(status().isBadRequest())
-            .andExpect(jsonPath("$.login").value("Логин не должен содержать пробелы"));
+            .andExpect(jsonPath("$.login").value("Логин не может быть пустым и не должен содержать пробелы"));
     }
 
 // Имя для отображения может быть пустым — в таком случае будет использован логин;
