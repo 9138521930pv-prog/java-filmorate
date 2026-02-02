@@ -9,6 +9,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import ru.yandex.practicum.filmorate.controller.FilmController;
+import ru.yandex.practicum.filmorate.storage.film.FilmStorage;
+import ru.yandex.practicum.filmorate.storage.user.UserStorage;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -32,9 +34,16 @@ public class FilmControllerTests {
     @Autowired
     private FilmController filmController;
 
+    @Autowired
+    private FilmStorage filmStorage;
+
+    @Autowired
+    private UserStorage userStorage;
+
     @BeforeEach
     void setUp() {
-        filmController.clear(); // Сброс перед каждым тестом
+        filmStorage.clear();
+        userStorage.clear();
     }
 
 // Добавление фильма
@@ -118,7 +127,7 @@ public class FilmControllerTests {
     void testReturnRequestWhenGetOneBadIdFilm() throws Exception {
         mockMvc.perform(get("/films/999"))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.error").value("Фильм с ID 999 не найден"));
+                .andExpect(jsonPath("$.error").value("Фильм с ID: 999 не найден"));
     }
 
 // Запрос фильма по существующему ID
@@ -156,4 +165,99 @@ public class FilmControllerTests {
                 .andExpect(jsonPath("$.description").value("Очень хороший фильм"))
                 .andExpect(jsonPath("$.duration").value("125"));
     }
+
+// Добавление лайка все параметры валидные
+@Test
+void testReturnRequestWhenAddLike() throws Exception {
+    mockMvc.perform(post("/films")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"name\":\"Новый фильм\",\"duration\":\"120\",\"description\":\"Хороший фильм\",\"releaseDate\":\"1990-01-01\"}"))
+            .andExpect(status().isCreated());
+    mockMvc.perform(post("/users")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"email\":\"test@test.ru\",\"login\":\"testlogin\",\"birthday\":\"1990-01-01\",\"name\":\"Иванов\"}"))
+            .andExpect(status().isCreated());
+    mockMvc.perform(put("/films/1/like/1")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(""))
+            .andExpect(status().isOk());
+}
+
+// Добавление лайка все параметры валидные
+    @Test
+    void testReturnRequestWhenDelLike() throws Exception {
+        mockMvc.perform(post("/films")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Новый фильм\",\"duration\":\"120\",\"description\":\"Хороший фильм\",\"releaseDate\":\"1990-01-01\"}"))
+                .andExpect(status().isCreated());
+        mockMvc.perform(post("/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"test@test.ru\",\"login\":\"testlogin\",\"birthday\":\"1990-01-01\",\"name\":\"Иванов\"}"))
+                .andExpect(status().isCreated());
+        mockMvc.perform(put("/films/1/like/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(""))
+                .andExpect(status().isOk());
+        mockMvc.perform(delete("/films/1/like/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(""))
+                .andExpect(status().isOk());
+    }
+
+//Возвращает список из первых count фильмов по количеству лайков. popular?count=0
+    @Test
+    void testReturnRequestWhenPopularCount0() throws Exception {
+        mockMvc.perform(post("/films")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Новый фильм\",\"duration\":\"120\",\"description\":\"Хороший фильм\",\"releaseDate\":\"1990-01-01\"}"))
+                .andExpect(status().isCreated());
+        mockMvc.perform(post("/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"test@test.ru\",\"login\":\"testlogin\",\"birthday\":\"1990-01-01\",\"name\":\"Иванов\"}"))
+                .andExpect(status().isCreated());
+        mockMvc.perform(put("/films/1/like/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(""))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/films/popular?count=0")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(""))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("getMostPopularFilms.mostPopularFilmCount: count должен быть больше 0"));
+
+    }
+
+//Возвращает список из первых count фильмов по количеству лайков. popular?count=2
+    @Test
+    void testReturnRequestWhenPopularCount1() throws Exception {
+        mockMvc.perform(post("/films")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Новый фильм\",\"duration\":\"120\",\"description\":\"Хороший фильм\",\"releaseDate\":\"1990-01-01\"}"))
+                .andExpect(status().isCreated());
+        mockMvc.perform(post("/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"test@test.ru\",\"login\":\"testlogin\",\"birthday\":\"1990-01-01\",\"name\":\"Иванов\"}"))
+                .andExpect(status().isCreated());
+        mockMvc.perform(post("/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"test1@test.ru\",\"login\":\"testlogin1\",\"birthday\":\"1990-01-01\",\"name\":\"Петров\"}"))
+                .andExpect(status().isCreated());
+        mockMvc.perform(put("/films/1/like/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(""))
+                .andExpect(status().isOk());
+        mockMvc.perform(put("/films/1/like/2")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(""))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/films/popular?count=2")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$[0].id").value(1));
+    }
+
 }
