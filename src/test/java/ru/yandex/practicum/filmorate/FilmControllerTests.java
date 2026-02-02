@@ -143,8 +143,8 @@ public class FilmControllerTests {
                 .andExpect(status().isCreated());
         mockMvc.perform(get("/films/2"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(1))
-                .andExpect(jsonPath("$.name").value("Новый фильм"));
+                .andExpect(jsonPath("$.id").value(2))
+                .andExpect(jsonPath("$.name").value("Очень новый фильм"));
     }
 
     // Запрос добавление фильма с ID
