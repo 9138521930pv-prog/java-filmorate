@@ -64,7 +64,7 @@ public class InMemoryUserStorage implements UserStorage {
 
         User user = users.get(userId);
         if (user == null) {
-            throw new ValidationException("Пользователь с ID: " + userId + " не найден");
+            throw new NotFoundException("Пользователь с ID: " + userId + " не найден");
         }
 
         for (User u : users.values()) {
