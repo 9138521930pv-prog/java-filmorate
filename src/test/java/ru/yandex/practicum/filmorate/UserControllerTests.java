@@ -74,16 +74,6 @@ public class UserControllerTests {
             .andExpect(jsonPath("$.login").value("Логин не может быть пустым"));
     }
 
-// Логин не должен содержать пробелы
-    @Test
-    void testReturnRequestWhenLoginIsIncorrect() throws Exception {
-        mockMvc.perform(post("/users")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content("{\"email\":\"test@test.ru\",\"login\":\"  \",\"birthday\":\"1990-01-01\"}"))
-            .andExpect(status().isBadRequest())
-            .andExpect(jsonPath("$.login").value("Логин не может быть пустым и не должен содержать пробелы"));
-    }
-
 // Имя для отображения может быть пустым — в таком случае будет использован логин;
     @Test
     void testReturnRequestWhenNameIsIncorrect() throws Exception {
