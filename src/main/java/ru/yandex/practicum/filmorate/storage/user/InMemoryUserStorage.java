@@ -1,20 +1,25 @@
 package ru.yandex.practicum.filmorate.storage.user;
 
+import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.User;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Component
 @Slf4j
 public class InMemoryUserStorage implements UserStorage {
     private final Map<Long, User> users = new HashMap<>();
+    private final Set<String> emailSet = new HashSet<>();
+
+    @PostConstruct
+    public void initEmailSet() {
+        users.values().forEach(user -> emailSet.add(user.getEmail()));
+        log.info("Инициализирован emailSet с {} существующими email", emailSet.size());
+    }
 
     @Override
     public User addUser(User user) {
@@ -22,10 +27,8 @@ public class InMemoryUserStorage implements UserStorage {
             throw new ValidationException("Запрос на добавление пользователя поступил с пустым телом");
         }
 
-        for (User u : users.values()) {
-            if (user.getEmail().equals(u.getEmail())) {
-                throw new ValidationException("Указанный E-mail: " + user.getEmail() + " уже используется");
-            }
+        if (emailSet.contains(user.getEmail())) {
+            throw new ValidationException("Указанный E-mail: " + user.getEmail() + " уже используется");
         }
 
         boolean nameIsNull = user.getName() == null || user.getName().isBlank();
@@ -36,6 +39,7 @@ public class InMemoryUserStorage implements UserStorage {
 
         user.setId(getNextId());
         users.put(user.getId(), user);
+        emailSet.add(user.getEmail());
         log.info("Создан пользователь с ID: {}", user.getId());
         return user;
     }
@@ -46,7 +50,7 @@ public class InMemoryUserStorage implements UserStorage {
         if (user == null) {
             throw new ValidationException("Попытка удаления фильма. Фильм с ID: " + id + " не найден");
         }
-
+        emailSet.remove(user.getEmail());
         log.info("Пользователь с ID: {} успешно удален.", id);
         return users.remove(id);
     }
@@ -67,11 +71,16 @@ public class InMemoryUserStorage implements UserStorage {
             throw new NotFoundException("Пользователь с ID: " + userId + " не найден");
         }
 
-        for (User u : users.values()) {
-            if (updatedUser.getEmail().equals(u.getEmail())) {
-                throw new ValidationException("Обновляемый E-mail: " + updatedUser.getEmail()
-                        + " уже используется");
+        String newEmail = updatedUser.getEmail();
+        String oldEmail = user.getEmail();
+
+        if (!newEmail.equals(oldEmail)) {
+            if (emailSet.contains(newEmail)) {
+                throw new ValidationException("Обновляемый E‑mail: " + newEmail + " уже используется");
             }
+
+            emailSet.remove(oldEmail);
+            emailSet.add(newEmail);
         }
             user.setEmail(updatedUser.getEmail());
             user.setLogin(updatedUser.getLogin());
@@ -100,7 +109,16 @@ public class InMemoryUserStorage implements UserStorage {
     @Override
     public void clear() {
         users.clear();
+        emailSet.clear();
         log.info("Хранилище films очищено. Текущий размер: {}",  users.size());
+    }
+
+    @Override
+    public List<User> getUsersByIds(Collection<Long> userIds) {
+        return userIds.stream()
+                .map(id -> users.get(id))
+                .filter(Objects::nonNull)
+                .toList();
     }
 
     private long getNextId() {

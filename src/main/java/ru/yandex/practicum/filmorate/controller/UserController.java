@@ -2,7 +2,7 @@ package ru.yandex.practicum.filmorate.controller;
 
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import ru.yandex.practicum.filmorate.model.User;
 import jakarta.validation.Valid;
@@ -19,14 +19,9 @@ import java.util.List;
 @RequestMapping("/users")
 @Slf4j
 @Validated
+@RequiredArgsConstructor
 public class UserController {
     private final UserService userService;
-
-    @Autowired
-    public UserController(UserService userService) {
-        this.userService = userService;
-    }
-
 
     @GetMapping("/{id}")
     public User getUser(@PathVariable("id")

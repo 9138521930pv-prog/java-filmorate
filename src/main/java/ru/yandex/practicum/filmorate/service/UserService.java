@@ -54,11 +54,10 @@ public class UserService {
 
     public List<User> getFriendsListOfUser(Long userId) {
         User user = userStorage.getUserById(userId);
-        Set<Long> friendsId = user.getFriendsId();
-        log.info("Создан список друзей пользователя с ID {}.", userId);
-        return friendsId.stream()
-                .map(userStorage::getUserById)
-                .toList();
+        Set<Long> friendsIds = user.getFriendsId();
+        List<User> friends = userStorage.getUsersByIds(friendsIds);
+        log.info("Загружено {} друзей для пользователя {}", friends.size(), userId);
+        return friends;
     }
 
     public List<User> getCommonFriends(Long firstUserId, Long secondUserId) {
@@ -69,12 +68,20 @@ public class UserService {
         User secondUser = userStorage.getUserById(secondUserId);
         Set<Long> mutualFriendsId = new HashSet<>(firstUser.getFriendsId());
         mutualFriendsId.retainAll(secondUser.getFriendsId());
-        log.info("Создан список общих друзей пользователей с ID = {} и ID = {}",
-                firstUserId, secondUserId);
-        return mutualFriendsId.stream()
-                .map(userStorage::getUserById)
-                .toList();
+
+        if (mutualFriendsId.isEmpty()) {
+            log.info("У пользователей {} и {} нет общих друзей", firstUserId, secondUserId);
+            return List.of();
+        }
+
+        List<User> commonFriends = userStorage.getUsersByIds(mutualFriendsId);
+
+        log.info("Создан список из {} общих друзей пользователей с ID = {} и ID = {}",
+                commonFriends.size(), firstUserId, secondUserId);
+
+        return commonFriends;
     }
+
 
     public void clearAllUsers() {
         userStorage.clear();
