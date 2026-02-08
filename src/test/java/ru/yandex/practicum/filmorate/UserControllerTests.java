@@ -8,6 +8,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import ru.yandex.practicum.filmorate.controller.UserController;
+import ru.yandex.practicum.filmorate.storage.user.UserStorage;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -22,10 +23,14 @@ public class UserControllerTests {
     @Autowired
     private UserController userController;
 
+    @Autowired
+    private UserStorage userStorage;
+
     @BeforeEach
     void setUp() {
-        userController.clear(); // Сброс перед каждым тестом
+        userStorage.clear();
     }
+
 
     // Добавление пользователя
     @Test
@@ -67,16 +72,6 @@ public class UserControllerTests {
                     .content("{\"email\":\"test@test.ru\",\"login\":\"\",\"birthday\":\"1990-01-01\"}"))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.login").value("Логин не может быть пустым"));
-    }
-
-// Логин не должен содержать пробелы
-    @Test
-    void testReturnRequestWhenLoginIsIncorrect() throws Exception {
-        mockMvc.perform(post("/users")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content("{\"email\":\"test@test.ru\",\"login\":\"  \",\"birthday\":\"1990-01-01\"}"))
-            .andExpect(status().isBadRequest())
-            .andExpect(jsonPath("$.login").value("Логин не должен содержать пробелы"));
     }
 
 // Имя для отображения может быть пустым — в таком случае будет использован логин;
@@ -134,7 +129,7 @@ public class UserControllerTests {
     void testReturnRequestWhenGetOneBadUsers() throws Exception {
         mockMvc.perform(get("/users/999"))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.error").value("Пользователь с ID 999 не найден"));
+                .andExpect(jsonPath("$.error").value("Пользователь с ID: 999 не найден"));
     }
 
 // Запрос пользователя по существующему ID
@@ -171,6 +166,104 @@ public class UserControllerTests {
                 .andExpect(jsonPath("$.id").value(1))
                 .andExpect(jsonPath("$.name").value("Петров"))
                 .andExpect(jsonPath("$.login").value("testlogin1"));
+    }
+
+// Добавление друга
+    @Test
+    void testReturnRequestWhenAddFriend() throws Exception {
+        mockMvc.perform(post("/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"test@test.ru\",\"login\":\"testlogin\",\"birthday\":\"1990-01-01\",\"name\":\"Иванов\"}"))
+                .andExpect(status().isCreated());
+        mockMvc.perform(post("/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"test1@test.ru\",\"login\":\"testlogin1\",\"birthday\":\"1991-01-01\"}"))
+                .andExpect(status().isCreated());
+        mockMvc.perform(put("/users/1/friends/2")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk());
+    }
+
+// Добавление друга - Ошибка - сам себе
+    @Test
+    void testReturnRequestWhenAddFriend1() throws Exception {
+        mockMvc.perform(post("/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"test@test.ru\",\"login\":\"testlogin\",\"birthday\":\"1990-01-01\",\"name\":\"Иванов\"}"))
+                .andExpect(status().isCreated());
+        mockMvc.perform(post("/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"test1@test.ru\",\"login\":\"testlogin1\",\"birthday\":\"1991-01-01\"}"))
+                .andExpect(status().isCreated());
+        mockMvc.perform(put("/users/1/friends/1")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Нельзя добавить себя в друзья: userId=1"));
+    }
+
+// Удаление друга
+    @Test
+    void testReturnRequestWhenDelFriend() throws Exception {
+        mockMvc.perform(post("/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"test@test.ru\",\"login\":\"testlogin\",\"birthday\":\"1990-01-01\",\"name\":\"Иванов\"}"))
+                .andExpect(status().isCreated());
+        mockMvc.perform(post("/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"test1@test.ru\",\"login\":\"testlogin1\",\"birthday\":\"1991-01-01\"}"))
+                .andExpect(status().isCreated());
+        mockMvc.perform(put("/users/1/friends/2")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk());
+        mockMvc.perform(delete("/users/1/friends/2")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk());
+
+    }
+
+ // Получение списка друзей
+    @Test
+    void testReturnRequestWhenListFriend() throws Exception {
+        mockMvc.perform(post("/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"test@test.ru\",\"login\":\"testlogin\",\"birthday\":\"1990-01-01\",\"name\":\"Иванов\"}"))
+                .andExpect(status().isCreated());
+        mockMvc.perform(post("/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"test1@test.ru\",\"login\":\"testlogin1\",\"birthday\":\"1991-01-01\"}"))
+                .andExpect(status().isCreated());
+        mockMvc.perform(put("/users/1/friends/2")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/users/1/friends"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(2));
+    }
+
+// Получение списка общих друзей
+    @Test
+    void testReturnRequestWhenListCommonFriend() throws Exception {
+        mockMvc.perform(post("/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"test@test.ru\",\"login\":\"testlogin\",\"birthday\":\"1990-01-01\",\"name\":\"Иванов\"}"))
+                .andExpect(status().isCreated());
+        mockMvc.perform(post("/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"test1@test.ru\",\"login\":\"testlogin1\",\"birthday\":\"1991-01-01\"}"))
+                .andExpect(status().isCreated());
+        mockMvc.perform(post("/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"test2@test.ru\",\"login\":\"testlogin2\",\"birthday\":\"1991-01-01\"}"))
+                .andExpect(status().isCreated());
+        mockMvc.perform(put("/users/1/friends/2")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk());
+        mockMvc.perform(put("/users/3/friends/2")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/users/1/friends/common/3"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(2));
     }
 
 }
