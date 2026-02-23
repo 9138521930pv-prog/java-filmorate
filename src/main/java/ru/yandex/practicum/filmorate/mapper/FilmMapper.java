@@ -24,7 +24,7 @@ public class FilmMapper {
                 .name(filmRequestDto.getName())
                 .description(filmRequestDto.getDescription())
                 .releaseDate(filmRequestDto.getReleaseDate())
-                .duration(filmRequestDto.getDuration ())
+                .duration(filmRequestDto.getDuration())
                 .mpa(MpaMapper.convertToEntity(filmRequestDto.getMpa()))
                 .genres(filmRequestDto.getGenres())
                 .build();
