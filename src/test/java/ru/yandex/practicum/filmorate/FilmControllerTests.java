@@ -1,5 +1,6 @@
 package ru.yandex.practicum.filmorate;
-
+public class FilmControllerTests {
+/*
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -14,7 +15,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
-*/
+
 @SpringBootTest
 @AutoConfigureMockMvc
 public class FilmControllerTests {

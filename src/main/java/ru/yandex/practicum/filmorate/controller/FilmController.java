@@ -86,6 +86,15 @@ public class FilmController {
         return ResponseEntity.ok().build();
     }
 
+    @DeleteMapping("/{id}")
+    public ResponseEntity<FilmResponseDto> delFilm(@PathVariable("id")
+                                                   @NotNull(message = "id не может быть null")
+                                                   @Min(value = 1, message = "id должен быть положительным целым числом")
+                                                   @Valid Long filmId) {
+        filmService.removeFilm(filmId);
+        return ResponseEntity.ok().build();
+    }
+
     @GetMapping("/popular")
     public List<FilmResponseDto> firstTenFilms(@RequestParam(value = "count", required = false, defaultValue = "10") Integer count) {
         log.info("film get popular " + "count: " + count);

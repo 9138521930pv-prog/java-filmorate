@@ -27,10 +27,10 @@ public class GenreDbStorage implements GenreStorage {
 
     @Override
     public Genre getGenreById(Long id) {
-        String sql = "SELECT * FROM genres WHERE id = ?";
+        String query = "SELECT * FROM genres WHERE id = ?";
         Genre genre;
         try {
-            genre =  jdbc.queryForObject(sql, genreRowMapper, id);
+            genre =  jdbc.queryForObject(query, genreRowMapper, id);
         } catch (EmptyResultDataAccessException e) {
             throw new NotFoundException("Жанр с ID= " + id + " не найден");
         }
@@ -42,14 +42,14 @@ public class GenreDbStorage implements GenreStorage {
         if (filmIds == null || filmIds.isEmpty()) return Map.of();
 
         String inSql = filmIds.stream().map(id -> "?").collect(Collectors.joining(","));
-        String sql = """
+        String query = """
                 SELECT fg.film_id, g.id, g.name
                 FROM film_genre fg
                 JOIN film_genres g ON g.id = fg.genre_id
                 WHERE fg.film_id IN (""" + inSql + ") ORDER BY fg.film_id, g.id";
 
         Object[] params = filmIds.toArray();
-        return jdbc.query(sql, rs -> {
+        return jdbc.query(query, rs -> {
             Map<Long, List<Genre>> map = new HashMap<>();
             while (rs.next()) {
                 long filmId = rs.getLong("film_id");

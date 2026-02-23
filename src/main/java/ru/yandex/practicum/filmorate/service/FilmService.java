@@ -87,6 +87,16 @@ public class FilmService {
         log.info("Лайк успешно удалён: фильм {}, пользователь {}", filmId, userId);
     }
 
+    public void removeFilm(Long filmId) {
+        log.info("Удаление фильмаЖ {}", filmId);
+
+        Film film = filmStorage.getFilmById(filmId);
+
+        filmStorage.removeFilm(film.getId());
+        log.info("Фильм {} успешно удалён", filmId);
+    }
+
+
     public List<FilmResponseDto> getTopFilms(Integer count) {
         return filmStorage.getTopFilm(count).stream().map(FilmMapper::convertToDto).toList();
     }

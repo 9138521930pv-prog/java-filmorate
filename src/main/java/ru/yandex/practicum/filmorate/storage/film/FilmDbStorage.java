@@ -3,6 +3,7 @@ package ru.yandex.practicum.filmorate.storage.film;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
@@ -18,7 +19,6 @@ import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.time.LocalDate;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
@@ -175,46 +175,36 @@ public class FilmDbStorage implements FilmStorage {
 
     }
 
-    //!!!!!!!!!!!!!!!!!!!!!
-    public void removeFilm(Long filmId) {
-
-        String query = """
-                select ?
-                """;
-        int updated = jdbc.update(query, filmId);
-        if (updated == 0) {
-            throw new NotFoundException("Фильм с : " + filmId + " не сушествует!");
-        }
-    }
-
-    //!!!!!!!!!!!!!!!!!!!!!
-    public Set<Long> getLikesByFilmId(Long id) {
-        String query = "SELECT user_id FROM likes WHERE film_id = ?";
-        return Set.copyOf(jdbc.queryForList(query, Long.class, id));
-    }
-
-    //!!!!!!!!!!!!!!!!!!!!!
     @Override
-    public Map<Long, List<Long>> getLikesByFilmId(List<Long> filmIds) {
-        if (filmIds == null || filmIds.isEmpty()) return Map.of();
+    public void removeFilm(Long filmId) {
+        String checkQuery = "SELECT COUNT(*) FROM films WHERE film_id = ?";
+        int count = jdbc.queryForObject(checkQuery, Integer.class, filmId);
 
-        String inSql = filmIds.stream().map(id -> "?").collect(Collectors.joining(","));
-        String sql = """
-                     SELECT film_id, user_id
-                     FROM likes
-                     WHERE film_id IN (""" +
-                     inSql + ") ORDER BY film_id, user_id ";
+        if (count == 0) {
+            throw new NotFoundException("Фильм с ID " + filmId + " не существует!");
+        }
 
-        Object[] params = filmIds.toArray();
-        return jdbc.query(sql, rs -> {
-            Map<Long, List<Long>> map = new HashMap<>();
-            while (rs.next()) {
-                long filmId = rs.getLong("film_id");
-                long userId = rs.getLong("user_id");
-                map.computeIfAbsent(filmId, k -> new ArrayList<>()).add(userId);
+        try {
+            String deleteGenreQuery = "DELETE FROM film_genre WHERE film_id = ?";
+            int genreDeleted = jdbc.update(deleteGenreQuery, filmId);
+            log.debug("Удалено записей из film_genre: {}", genreDeleted);
+
+            String deleteMpaQuery = "DELETE FROM mpa WHERE film_id = ?";
+            int mpaDeleted = jdbc.update(deleteMpaQuery, filmId);
+            log.debug("Удалено записей из mpa: {}", mpaDeleted);
+
+            String deleteFilmQuery = "DELETE FROM films WHERE film_id = ?";
+            int filmDeleted = jdbc.update(deleteFilmQuery, filmId);
+
+            if (filmDeleted == 0) {
+                throw new NotFoundException("Фильм с ID " + filmId + " не найден при удалении из основной таблицы!");
             }
-            return map;
-        }, params);
+
+            log.info("Фильм с ID {} и связанные записи успешно удалены", filmId);
+        } catch (DataAccessException e) {
+            log.error("Ошибка при каскадном удалении фильма с ID {}", filmId, e);
+            throw new ValidationException("Ошибка при удалении фильма и связанных данных");
+        }
     }
 
     @Override
@@ -274,8 +264,8 @@ public class FilmDbStorage implements FilmStorage {
         if (film.getGenres() == null || film.getGenres().isEmpty()) {
             return;
         }
-        String deleteSql = "DELETE FROM film_genres WHERE film_id = ?";
-        int deleted = jdbc.update(deleteSql, film.getId());
+        String query = "DELETE FROM film_genres WHERE film_id = ?";
+        int deleted = jdbc.update(query, film.getId());
 
         log.debug("Deleted {} existing genre records for film ID {}", deleted, film.getId());
 
