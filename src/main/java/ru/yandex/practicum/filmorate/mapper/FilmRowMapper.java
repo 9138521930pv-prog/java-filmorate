@@ -17,7 +17,9 @@ import java.util.stream.Collectors;
 @Component
 @Slf4j
 public class FilmRowMapper implements RowMapper<Film> {
+
     private final ObjectMapper objectMapper = new ObjectMapper(); // Один экземпляр на весь бин
+
     @Override
     public Film mapRow(ResultSet rs, int rowNum) throws SQLException {
         return Film.builder()
