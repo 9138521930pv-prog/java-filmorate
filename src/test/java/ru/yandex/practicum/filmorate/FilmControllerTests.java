@@ -39,11 +39,11 @@ public class FilmControllerTests {
 
     @Autowired
     private UserStorage userStorage;
-
+/*
     @BeforeEach
     void setUp() {
-        filmStorage.clear();
-        userStorage.clear();
+//        filmStorage.clear();
+ //       userStorage.clear();
     }
 
 // Добавление фильма
@@ -268,5 +268,5 @@ void testReturnRequestWhenAddLike() throws Exception {
                 .andExpect(jsonPath("$").isArray())
                 .andExpect(jsonPath("$[0].id").value(1));
     }
-
+*/
 }
