@@ -1,22 +1,16 @@
 package ru.yandex.practicum.filmorate.storage.film;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
-//import org.springframework.jdbc.support.GeneratedKeyHolder;
-//import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Component;
-//import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.mapper.FilmRowMapper;
 import ru.yandex.practicum.filmorate.model.Film;
-import ru.yandex.practicum.filmorate.model.Genre;
-import ru.yandex.practicum.filmorate.model.Mpa;
 import ru.yandex.practicum.filmorate.storage.genre.GenreStorage;
 import ru.yandex.practicum.filmorate.storage.mpa.MpaStorage;
 
@@ -25,12 +19,6 @@ import java.sql.Statement;
 import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
-//import ru.yandex.practicum.filmorate.model.Film;
-
-
-//import java.sql.Statement;
-//import java.util.*;
-//import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
@@ -41,7 +29,7 @@ public class FilmDbStorage implements FilmStorage {
     private final FilmRowMapper filmRowMapper;
     private final MpaStorage mpaStorage;
     private final GenreStorage genreStorage;
-//-!-----Нужен---проверен
+
     @Override
     public List<Film> getAllFilm() {
         String query = """
@@ -54,10 +42,9 @@ public class FilmDbStorage implements FilmStorage {
                                                         ) || ']' AS genres_json
                                                     FROM film_genres a
                                                     LEFT JOIN genres b ON a.genre_id = b.id
-                                            
                        ) AS genre,
                        (SELECT LISTAGG(l.user_id , ',')
-                          FROM likes l 
+                          FROM likes l
                          WHERE l.film_id = f.id
                        ) AS likes,
                       '{"id": ' || c.ID || ', "name": "' || c.NAME || '"}' AS mpa
@@ -66,7 +53,7 @@ public class FilmDbStorage implements FilmStorage {
         """;
         return jdbc.query(query, filmRowMapper);
     }
-    //-!-----Нужен---проверен
+
     @Override
     public Film getFilmById(Long id) {
         String query = """
@@ -79,10 +66,10 @@ public class FilmDbStorage implements FilmStorage {
                                                                 ) || ']' AS genres_json
                                                             FROM film_genres a
                                                             LEFT JOIN genres b ON a.genre_id = b.id
-                                                            WHERE a.film_id = f.id                       
+                                                            WHERE a.film_id = f.id
                        ) AS genre,
                        (SELECT LISTAGG(l.user_id , ',')
-                          FROM likes l 
+                          FROM likes l
                          WHERE l.film_id = f.id
                        ) AS likes,
                       '{"id": ' || c.ID || ', "name": "' || c.NAME || '"}' AS mpa
@@ -93,7 +80,7 @@ public class FilmDbStorage implements FilmStorage {
 
         return  jdbc.queryForObject(query, filmRowMapper, id);
     }
-//-!-----Нужен---проверен
+
     @Override
     public Film addFilm(Film film) {
         KeyHolder keyHolder = new GeneratedKeyHolder();
@@ -118,7 +105,6 @@ public class FilmDbStorage implements FilmStorage {
         }, keyHolder);
         Long generatedId = keyHolder.getKey().longValue();
         film.setId(generatedId);
-        // Сохраняем жанры
         saveFilmGenre(film);
         log.info("Создан фильм с ID: {}", film.getId());
         return film;
@@ -162,7 +148,7 @@ public class FilmDbStorage implements FilmStorage {
             }
         });
     }
-//-!-----Нужен---проверен
+
     @Override
     public Film updateFilm(Film film) {
         String query = """
@@ -188,9 +174,11 @@ public class FilmDbStorage implements FilmStorage {
         return film;
 
     }
-//!!!!!!!!!!!!!!!!!!!!!
+
+    //!!!!!!!!!!!!!!!!!!!!!
     public void removeFilm(Long filmId) {
-        String query = """    
+
+        String query = """
                 select ?
                 """;
         int updated = jdbc.update(query, filmId);
@@ -204,6 +192,7 @@ public class FilmDbStorage implements FilmStorage {
         String query = "SELECT user_id FROM likes WHERE film_id = ?";
         return Set.copyOf(jdbc.queryForList(query, Long.class, id));
     }
+
     //!!!!!!!!!!!!!!!!!!!!!
     @Override
     public Map<Long, List<Long>> getLikesByFilmId(List<Long> filmIds) {
@@ -211,9 +200,10 @@ public class FilmDbStorage implements FilmStorage {
 
         String inSql = filmIds.stream().map(id -> "?").collect(Collectors.joining(","));
         String sql = """
-                SELECT film_id, user_id
-                FROM likes
-                WHERE film_id IN (""" + inSql + ") ORDER BY film_id, user_id";
+                     SELECT film_id, user_id
+                     FROM likes
+                     WHERE film_id IN (""" +
+                     inSql + ") ORDER BY film_id, user_id ";
 
         Object[] params = filmIds.toArray();
         return jdbc.query(sql, rs -> {
@@ -226,7 +216,7 @@ public class FilmDbStorage implements FilmStorage {
             return map;
         }, params);
     }
-//-!-----Нужен---проверен
+
     @Override
     public void addLike(Long filmId, Long userId) {
         String query = """
@@ -238,7 +228,7 @@ public class FilmDbStorage implements FilmStorage {
             throw new NotFoundException("there is no such film: " + filmId + "or user: " + userId);
         }
     }
-    //-!-----Нужен---проверен
+
     @Override
     public void deleteLike(Long filmId, Long userId) {
         String query = """
@@ -251,18 +241,18 @@ public class FilmDbStorage implements FilmStorage {
             throw new NotFoundException("there is no such film: " + filmId + "or user: " + userId);
         }
     }
-    //-!-----Нужен---проверен
+
     @Override
     public List<Film> getTopFilm(Integer count) {
         String query = """
                 SELECT f.id, f.NAME, f.DESCRIPTION, f.RELEASE_DATE, f.DURATION, f.MPA_ID,
                        (SELECT '[' || LISTAGG('{"id": ' || b.ID || ', "name": "' || b.NAME || '"}', ', ') || ']'
-                          FROM film_genres a 
+                          FROM film_genres a
                           LEFT JOIN genres b ON a.genre_id = b.id
                          WHERE a.film_id = f.id
                        ) AS genre,
                        (SELECT LISTAGG(l.user_id , ',')
-                          FROM likes l 
+                          FROM likes l
                          WHERE l.film_id = f.id
                        ) AS likes,
                       '{"id": ' || c.ID || ', "name": "' || c.NAME || '"}' AS mpa
@@ -272,7 +262,7 @@ public class FilmDbStorage implements FilmStorage {
                 	      FROM likes
                 	     GROUP BY film_id
                 	     ORDER BY likes_count DESC
-                	     LIMIT ?) AS lc ON f.id = lc.film_id                  
+                	     LIMIT ?) AS lc ON f.id = lc.film_id
                   LEFT JOIN mpa c ON f.mpa_id = c.id
                  ORDER BY lc.likes_count DESC
                 """;
@@ -301,5 +291,4 @@ public class FilmDbStorage implements FilmStorage {
                 }
         );
     }
-
 }

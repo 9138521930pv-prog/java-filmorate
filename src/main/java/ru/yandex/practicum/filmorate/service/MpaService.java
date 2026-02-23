@@ -15,10 +15,10 @@ import java.util.List;
 public class MpaService {
 
     private final MpaDbStorage mpaStorage;
-    public MpaService(@Qualifier("mpaDbStorage") MpaDbStorage mpaStorage)
-    {
-        this.mpaStorage = mpaStorage;
 
+    public MpaService(@Qualifier("mpaDbStorage") MpaDbStorage mpaStorage) {
+
+        this.mpaStorage = mpaStorage;
     }
 
     public List<MpaResponseDto> getAllMpa() {

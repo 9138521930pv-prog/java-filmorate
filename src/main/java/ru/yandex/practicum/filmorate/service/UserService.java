@@ -55,6 +55,7 @@ public class UserService {
         userIdIsValid(friendId);
         userStorage.removeFriend(userId, friendId);
     }
+
     public List<UserResponseDto> getFriendsList(Long userId) {
         userIdIsValid(userId);
         Collection<User> friends = userStorage.getFriends(userId);

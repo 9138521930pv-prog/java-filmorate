@@ -20,6 +20,8 @@ public interface FilmStorage {
     Map<Long, List<Long>> getLikesByFilmId(List<Long> filmIds);
 
     void addLike(Long filmId, Long userId);
+
     void deleteLike(Long filmId, Long userId);
+
     List<Film> getTopFilm(Integer count);
 }
