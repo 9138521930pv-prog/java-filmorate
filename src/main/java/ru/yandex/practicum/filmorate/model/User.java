@@ -27,9 +27,11 @@ public class User {
     @Past(message = "Дата рождения не может быть в будущем")
     @NotNull(message = "Дата рождения обязательна")
     private LocalDate birthday;
+
     public void addFriend(Long addedFriendsId) {
         friendsId.add(addedFriendsId);
     }
+
     public void removeFriend(Long removedFriendsId) {
         friendsId.remove(removedFriendsId);
     }
