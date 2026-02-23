@@ -1,2 +1,4 @@
 # java-filmorate
-Template repository for Filmorate project.
+Шаблон проекта Filmorate.
+
+ER‑схема.
