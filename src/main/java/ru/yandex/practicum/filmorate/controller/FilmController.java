@@ -2,18 +2,15 @@ package ru.yandex.practicum.filmorate.controller;
 
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
-import ru.yandex.practicum.filmorate.model.Film;
-
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.service.FilmService;
-
 import java.net.URI;
 import java.util.List;
 
@@ -26,64 +23,72 @@ public class FilmController {
     private final FilmService filmService;
 
     @GetMapping
-    public ResponseEntity<List<Film>> getAllFilms() {
-        List<Film> films = filmService.getFilmStorage().getAllFilm();
-        if (films.isEmpty()) {
-            return ResponseEntity.noContent().build();
-        }
-        return ResponseEntity.ok().body(films);
+    public List<Film> getAllFilms() {
+        return filmService.getFilmAll();
+    }
+
+    @GetMapping("/{id}")
+    public Film getFilmById(@PathVariable("id")
+                            @NotNull(message = "id не может быть null")
+                            @Min(value = 1, message = "id должен быть положительным целым числом")
+                            @Valid Long filmId) {
+
+        return filmService.getFilmById(filmId);
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public ResponseEntity<Film> addFilm(@Valid @RequestBody Film film) {
-        Film savedFilm = filmService.getFilmStorage().addFilm(film);
+        Film savedFilm = filmService.addFilm(film);
         URI location = URI.create("/films/" + savedFilm.getId());
         return ResponseEntity.created(location).body(savedFilm);
     }
 
     @PutMapping
     @ResponseStatus(HttpStatus.OK)
-    public Film updateFilm(@Valid @RequestBody Film updatedFilm) {
-        return filmService.getFilmStorage().updateFilm(updatedFilm);
+    public Film updateFilm(@Valid @RequestBody Film film) {
+        return filmService.updateFilm(film);
     }
 
-    @GetMapping("/{id}")
-    public Film getFilm(@PathVariable("id")
+    @PutMapping("/{id}/like/{friendId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void addLike(@PathVariable("id")
                         @NotNull(message = "id не может быть null")
                         @Min(value = 1, message = "id должен быть положительным целым числом")
-                        @Valid Long filmId) {
-        return filmService.getFilmStorage().getFilmById(filmId);
-    }
-
-    @PutMapping("/{id}/like/{userId}")
-    public Film addLike(@PathVariable("id")
-                        @NotNull(message = "id не может быть null")
-                        @Min(value = 1, message = "id должен быть положительным целым числом")
-                        @Valid Long likedFilmId,
-                        @PathVariable("userId")
+                        @Valid Long filmId,
+                        @PathVariable("friendId")
                         @NotNull(message = "id не может быть null")
                         @Min(value = 1, message = "id должен быть положительным целым числом")
                         @Valid Long userId) {
-        return filmService.addLike(likedFilmId, userId);
+        filmService.addLike(filmId, userId);
     }
 
-    @DeleteMapping("/{id}/like/{userId}")
-    public Film removeLike(@PathVariable("id")
-                           @NotNull(message = "id не может быть null")
-                           @Min(value = 1, message = "id должен быть положительным целым числом")
-                           @Valid Long likedFilmId,
-                           @PathVariable("userId")
-                           @NotNull(message = "id не может быть null")
-                           @Min(value = 1, message = "id должен быть положительным целым числом")
-                           @Valid Long userId) {
-        return filmService.removeLike(likedFilmId, userId);
+    @DeleteMapping("/{id}/like/{friendId}")
+    @ResponseStatus(HttpStatus.OK)
+    public void delLike(@PathVariable("id")
+                        @NotNull(message = "id не может быть null")
+                        @Min(value = 1, message = "id должен быть положительным целым числом")
+                        @Valid Long filmId,
+                        @PathVariable("friendId")
+                        @NotNull(message = "id не может быть null")
+                        @Min(value = 1, message = "id должен быть положительным целым числом")
+                        @Valid Long userId) {
+        filmService.delLike(filmId, userId);
+    }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.OK)
+    public void delFilm(@PathVariable("id")
+                        @NotNull(message = "id не может быть null")
+                        @Min(value = 1, message = "id должен быть положительным целым числом")
+                        @Valid Long filmId) {
+        filmService.removeFilm(filmId);
     }
 
     @GetMapping("/popular")
-    public List<Film> getMostPopularFilms(@RequestParam(name = "count", defaultValue = "10")
-                                          @Positive(message = "count должен быть больше 0")
-                                          @Valid Long mostPopularFilmCount) {
-        return filmService.getMostPopularFilms(mostPopularFilmCount);
+    public List<Film> firstTenFilms(@RequestParam(value = "count", required = false, defaultValue = "10")
+                                    @Min(value = 1, message = "count должен быть положительным числом и > 0")
+                                    Integer count) {
+        return filmService.getTopFilms(count);
     }
 }

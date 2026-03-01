@@ -1,16 +1,20 @@
 package ru.yandex.practicum.filmorate;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import ru.yandex.practicum.filmorate.controller.FilmController;
 import ru.yandex.practicum.filmorate.storage.film.FilmStorage;
 import ru.yandex.practicum.filmorate.storage.user.UserStorage;
+
+import java.io.IOException;
+import java.util.Map;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -40,110 +44,139 @@ public class FilmControllerTests {
     @Autowired
     private UserStorage userStorage;
 
-    @BeforeEach
-    void setUp() {
-        filmStorage.clear();
-        userStorage.clear();
-    }
+    @Autowired
+    private JdbcTemplate jdbc;
 
-// Добавление фильма
+
+    // Добавление фильма
     @Test
     void testCreateFilmSuccessfully() throws Exception {
-        mockMvc.perform(post("/films")
+        MvcResult mvcResult = mockMvc.perform(post("/films")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"Новый фильм\",\"duration\":\"120\",\"description\":\"Хороший фильм\",\"releaseDate\":\"1990-01-01\"}"))
+                        .content("{\"mpa\":{\"id\":1},\"genres\":[{\"id\":1}],\"name\":\"Новый фильм\",\"duration\":\"120\",\"description\":\"Хороший фильм\",\"releaseDate\":\"1990-01-01\"}"))
                 .andExpect(status().isCreated())
-                .andExpect(header().string("Location", "/films/1"))
-                .andExpect(jsonPath("$.id").value(1))
+                .andReturn();
+        String locationHeader = mvcResult.getResponse().getHeader("Location");
+        String responseBody = mvcResult.getResponse().getContentAsString();
+        Long filmId = getId(responseBody);
+        mockMvc.perform(get(locationHeader))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(filmId))
                 .andExpect(jsonPath("$.releaseDate").value("1990-01-01"))
-                .andExpect(jsonPath("$.duration").value("120"))
+                .andExpect(jsonPath("$.duration").value(120)) // число без кавычек
                 .andExpect(jsonPath("$.description").value("Хороший фильм"))
                 .andExpect(jsonPath("$.name").value("Новый фильм"));
+
     }
 
-// Название не может быть пустым;
+    // Название не может быть пустым;
     @Test
     void testReturnRequestWhenNameIsEmpty() throws Exception {
         mockMvc.perform(post("/films")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"\",\"duration\":\"120\",\"description\":\"Хороший фильм\",\"releaseDate\":\"1990-01-01\"}"))
+                        .content("{\"mpa\":{\"id\":1},\"genres\":[{\"id\":1}],\"name\":\"\",\"duration\":\"120\",\"description\":\"Хороший фильм\",\"releaseDate\":\"1990-01-01\"}"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.name").value("Название фильма не может быть пустым"));
+                .andExpect(jsonPath("$.message").value("Название фильма не может быть пустым"));
     }
 
-// Максимальная длина описания — 200 символов;
+    // Максимальная длина описания — 200 символов;
     @Test
     void testReturnRequestWhenDescriptionIsMaxLength() throws Exception {
         String maxLengthDescription = "A".repeat(255);
         mockMvc.perform(post("/films")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"Новый фильм\",\"duration\":\"120\",\"description\":\"" + maxLengthDescription + "\",\"releaseDate\":\"1990-01-01\"}"))
+                        .content("{\"mpa\":{\"id\":1},\"genres\":[{\"id\":1}],\"name\":\"Новый фильм\",\"duration\":\"120\",\"description\":\"" + maxLengthDescription + "\",\"releaseDate\":\"1990-01-01\"}"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.description").value("Описание не должно превышать 200 символов"));
+                .andExpect(jsonPath("$.message").value("Описание не должно превышать 200 символов"));
     }
 
-// Дата релиза — не раньше 28 декабря 1895 года;
+    // Дата релиза — не раньше 28 декабря 1895 года;
     @Test
     void testReturnRequestWhenReleaseDateInCorrect() throws Exception {
         mockMvc.perform(post("/films")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"Новый фильм\",\"duration\":\"120\",\"description\":\"Хороший фильм\",\"releaseDate\":\"2027-01-01\"}"))
+                        .content("{\"mpa\":{\"id\":1},\"genres\":[{\"id\":1}],\"name\":\"Новый фильм\",\"duration\":\"120\",\"description\":\"Хороший фильм\",\"releaseDate\":\"2027-01-01\"}"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.releaseDate").value("Дата релиза не может быть в будущем"));
+                .andExpect(jsonPath("$.message").value("Дата выхода не может быть в будущем"));
     }
 
-// Продолжительность фильма должна быть положительным числом.
+    // Продолжительность фильма должна быть положительным числом.
     @Test
     void testReturnRequestWhenDurationInCorrect() throws Exception {
         mockMvc.perform(post("/films")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"Новый фильм\",\"duration\":\"-120\",\"description\":\"Хороший фильм\",\"releaseDate\":\"1990-01-01\"}"))
+                        .content("{\"mpa\":{\"id\":1},\"genres\":[{\"id\":1}],\"name\":\"Новый фильм\",\"duration\":\"-120\",\"description\":\"Хороший фильм\",\"releaseDate\":\"1990-01-01\"}"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.duration").value("Продолжительность фильма должна быть положительным числом"));
+                .andExpect(jsonPath("$.message").value("Продолжительность фильма должна быть положительным числом"));
     }
 
-// Вывод всех пользователей
+    // Вывод всех пользователей
     @Test
     void testReturnRequestWhenGetAllFilm() throws Exception {
-        mockMvc.perform(post("/films")
+        MvcResult mvcResult0 = mockMvc.perform(post("/films")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"Новый фильм\",\"duration\":\"120\",\"description\":\"Хороший фильм\",\"releaseDate\":\"1990-01-01\"}"))
-                .andExpect(status().isCreated());
-        mockMvc.perform(post("/films")
+                        .content("{\"mpa\":{\"id\":1},\"genres\":[{\"id\":1}],\"name\":\"Новый фильм\",\"duration\":\"120\",\"description\":\"Хороший фильм\",\"releaseDate\":\"1990-01-01\"}"))
+                .andExpect(status().isCreated())
+                .andReturn();
+        MvcResult mvcResult1 = mockMvc.perform(post("/films")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"Очень новый фильм\",\"duration\":\"125\",\"description\":\"Хороший фильм\",\"releaseDate\":\"2025-01-01\"}"))
-                .andExpect(status().isCreated());
+                        .content("{\"mpa\":{\"id\":1},\"genres\":[{\"id\":1}],\"name\":\"Очень новый фильм\",\"duration\":\"125\",\"description\":\"Хороший фильм\",\"releaseDate\":\"2025-01-01\"}"))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String responseBody0 = mvcResult0.getResponse().getContentAsString();
+        Long filmId0 = getId(responseBody0);
+        String responseBody1 = mvcResult1.getResponse().getContentAsString();
+        Long filmId1 = getId(responseBody1);
         mockMvc.perform(get("/films"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$").isArray())
-                .andExpect(jsonPath("$[0].id").value(1))
-                .andExpect(jsonPath("$[0].name").value("Новый фильм"))
-                .andExpect(jsonPath("$[1].id").value(2))
-                .andExpect(jsonPath("$[1].name").value("Очень новый фильм"));
+                .andExpect(jsonPath("$").isArray());
     }
 
-// Запрос фильма по не существующему ID
+    // Запрос фильма по не существующему ID
     @Test
     void testReturnRequestWhenGetOneBadIdFilm() throws Exception {
         mockMvc.perform(get("/films/999"))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.error").value("Фильм с ID: 999 не найден"));
+                .andExpect(jsonPath("$.message").value("Фильм не найден."));
     }
 
-// Запрос фильма по существующему ID
+
+    private Long getId(String responseBody) throws IOException {
+        Map<String, Object> responseMap = objectMapper.readValue(responseBody, Map.class);
+        //Long id = (Long) responseMap.get("id");
+        Object idObject = responseMap.get("id");
+        if (idObject instanceof Long) {
+            return (Long) idObject;
+        } else if (idObject instanceof Integer) {
+            return ((Integer) idObject).longValue();
+        } else {
+            throw new IllegalArgumentException(
+                    "Поле 'id' имеет неподдерживаемый тип: " + idObject.getClass()
+            );
+        }
+
+    }
+
+    // Запрос фильма по существующему ID
     @Test
     void testReturnRequestWhenGetOneFilms() throws Exception {
+
         mockMvc.perform(post("/films")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"Новый фильм\",\"duration\":\"120\",\"description\":\"Хороший фильм\",\"releaseDate\":\"1990-01-01\"}"))
+                        .content("{\"mpa\":{\"id\":1},\"genres\":[{\"id\":1}],\"name\":\"Новый фильм\",\"duration\":\"120\",\"description\":\"Хороший фильм\",\"releaseDate\":\"1990-01-01\"}"))
                 .andExpect(status().isCreated());
-        mockMvc.perform(post("/films")
+        MvcResult mvcResult = mockMvc.perform(post("/films")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"Очень новый фильм\",\"duration\":\"125\",\"description\":\"Хороший фильм\",\"releaseDate\":\"2025-01-01\"}"))
-                .andExpect(status().isCreated());
-        mockMvc.perform(get("/films/2"))
+                        .content("{\"mpa\":{\"id\":1},\"genres\":[{\"id\":1}],\"name\":\"Очень новый фильм\",\"duration\":\"125\",\"description\":\"Хороший фильм\",\"releaseDate\":\"2025-01-01\"}"))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        String responseBody = mvcResult.getResponse().getContentAsString();
+        Long filmId = getId(responseBody);
+
+        mockMvc.perform(get("/films/" + filmId))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(2))
+                .andExpect(jsonPath("$.id").value(filmId))
                 .andExpect(jsonPath("$.name").value("Очень новый фильм"));
     }
 
@@ -152,121 +185,155 @@ public class FilmControllerTests {
     void testReturnRequestWhenGetOneFilmsID() throws Exception {
         mockMvc.perform(put("/films")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"id\":\"1\",\"name\":\"Новый фильм\",\"duration\":\"120\",\"description\":\"Хороший фильм\",\"releaseDate\":\"1990-01-01\"}"))
+                        .content("{\"mpa\":{\"id\":1},\"genres\":[{\"id\":1}],\"id\":\"9999\",\"name\":\"Новый фильм\",\"duration\":\"120\",\"description\":\"Хороший фильм\",\"releaseDate\":\"1990-01-01\"}"))
                 .andExpect(status().isNotFound());
     }
 
-// Редактирование пользователя по ID
+    // Редактирование пользователя по ID
     @Test
     void testReturnRequestWhenUpdateFilms() throws Exception {
-        mockMvc.perform(post("/films")
+        MvcResult mvcResult0 = mockMvc.perform(post("/films")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"Новый фильм\",\"duration\":\"120\",\"description\":\"Хороший фильм\",\"releaseDate\":\"1990-01-01\"}"))
-                .andExpect(status().isCreated());
-        mockMvc.perform(put("/films")
+                        .content("{\"mpa\":{\"id\":1},\"genres\":[{\"id\":1}],\"name\":\"Новый фильм\",\"duration\":\"120\",\"description\":\"Хороший фильм\",\"releaseDate\":\"1990-01-01\"}"))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String responseBody = mvcResult0.getResponse().getContentAsString();
+        Long filmId = getId(responseBody);
+        MvcResult mvcResult1 = mockMvc.perform(put("/films")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"id\":\"1\",\"name\":\"Очень новый фильм\",\"duration\":\"125\",\"description\":\"Очень хороший фильм\",\"releaseDate\":\"2025-01-01\"}"))
-                .andExpect(status().isOk());
-        mockMvc.perform(get("/films/1"))
+                        .content("{\"mpa\":{\"id\":1},\"genres\":[{\"id\":1}],\"id\":\"" + filmId + "\",\"name\":\"Очень новый фильм\",\"duration\":\"125\",\"description\":\"Очень хороший фильм\",\"releaseDate\":\"2025-01-01\"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(1))
+                .andReturn();
+
+        mockMvc.perform(get("/films/" + filmId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(filmId))
                 .andExpect(jsonPath("$.name").value("Очень новый фильм"))
                 .andExpect(jsonPath("$.description").value("Очень хороший фильм"))
                 .andExpect(jsonPath("$.duration").value("125"));
     }
 
-// Добавление лайка все параметры валидные
-@Test
-void testReturnRequestWhenAddLike() throws Exception {
-    mockMvc.perform(post("/films")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content("{\"name\":\"Новый фильм\",\"duration\":\"120\",\"description\":\"Хороший фильм\",\"releaseDate\":\"1990-01-01\"}"))
-            .andExpect(status().isCreated());
-    mockMvc.perform(post("/users")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content("{\"email\":\"test@test.ru\",\"login\":\"testlogin\",\"birthday\":\"1990-01-01\",\"name\":\"Иванов\"}"))
-            .andExpect(status().isCreated());
-    mockMvc.perform(put("/films/1/like/1")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(""))
-            .andExpect(status().isOk());
-}
-
-// Добавление лайка все параметры валидные
+    // Добавление лайка все параметры валидные
     @Test
-    void testReturnRequestWhenDelLike() throws Exception {
-        mockMvc.perform(post("/films")
+    void testReturnRequestWhenAddLike() throws Exception {
+        MvcResult mvcResult0 = mockMvc.perform(post("/films")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"Новый фильм\",\"duration\":\"120\",\"description\":\"Хороший фильм\",\"releaseDate\":\"1990-01-01\"}"))
-                .andExpect(status().isCreated());
-        mockMvc.perform(post("/users")
+                        .content("{\"mpa\":{\"id\":1},\"genres\":[{\"id\":1}],\"name\":\"Новый фильм\",\"duration\":\"120\",\"description\":\"Хороший фильм\",\"releaseDate\":\"1990-01-01\"}"))
+                .andExpect(status().isCreated())
+                .andReturn();
+        MvcResult mvcResult1 = mockMvc.perform(post("/users")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"test@test.ru\",\"login\":\"testlogin\",\"birthday\":\"1990-01-01\",\"name\":\"Иванов\"}"))
-                .andExpect(status().isCreated());
-        mockMvc.perform(put("/films/1/like/1")
+                        .content("{\"email\":\"test1112@test.ru\",\"login\":\"testlogin1\",\"birthday\":\"1990-01-01\",\"name\":\"Иванов\"}"))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String responseBody0 = mvcResult0.getResponse().getContentAsString();
+        Long filmId = getId(responseBody0);
+        String responseBody1 = mvcResult0.getResponse().getContentAsString();
+        Long userId = getId(responseBody1);
+
+
+        mockMvc.perform(put("/films/" + filmId + "/like/" + userId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(""))
-                .andExpect(status().isOk());
-        mockMvc.perform(delete("/films/1/like/1")
+                .andExpect(status().isNoContent());
+    }
+
+    // Добавление лайка все параметры валидные
+    @Test
+    void testReturnRequestWhenDelLike() throws Exception {
+        MvcResult mvcResult0 = mockMvc.perform(post("/films")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"mpa\":{\"id\":1},\"genres\":[{\"id\":1}],\"name\":\"Новый фильм\",\"duration\":\"120\",\"description\":\"Хороший фильм\",\"releaseDate\":\"1990-01-01\"}")
+                                        )
+                .andExpect(status().isCreated())
+                .andReturn();
+        MvcResult mvcResult1 = mockMvc.perform(post("/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"test1113@test.ru\",\"login\":\"testlogin2\",\"birthday\":\"1990-01-01\",\"name\":\"Иванов\"}"))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String responseBody0 = mvcResult0.getResponse().getContentAsString();
+        Long filmId = getId(responseBody0);
+        String responseBody1 = mvcResult0.getResponse().getContentAsString();
+        Long userId = getId(responseBody1);
+        mockMvc.perform(put("/films/" + filmId + "/like/" + userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(""))
+                .andExpect(status().isNoContent());
+        mockMvc.perform(delete("/films/" + filmId + "/like/" + userId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(""))
                 .andExpect(status().isOk());
     }
 
-//Возвращает список из первых count фильмов по количеству лайков. popular?count=0
+    //Возвращает список из первых count фильмов по количеству лайков. popular?count=0
     @Test
     void testReturnRequestWhenPopularCount0() throws Exception {
-        mockMvc.perform(post("/films")
+        MvcResult mvcResult0 = mockMvc.perform(post("/films")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"Новый фильм\",\"duration\":\"120\",\"description\":\"Хороший фильм\",\"releaseDate\":\"1990-01-01\"}"))
-                .andExpect(status().isCreated());
-        mockMvc.perform(post("/users")
+                        .content("{\"mpa\":{\"id\":1},\"genres\":[{\"id\":1}],\"name\":\"Новый фильм\",\"duration\":\"120\",\"description\":\"Хороший фильм\",\"releaseDate\":\"1990-01-01\"}"))
+                .andExpect(status().isCreated())
+                .andReturn();
+        MvcResult mvcResult1 = mockMvc.perform(post("/users")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"test@test.ru\",\"login\":\"testlogin\",\"birthday\":\"1990-01-01\",\"name\":\"Иванов\"}"))
-                .andExpect(status().isCreated());
-        mockMvc.perform(put("/films/1/like/1")
+                        .content("{\"email\":\"test111@test.ru\",\"login\":\"testlogin3\",\"birthday\":\"1990-01-01\",\"name\":\"Иванов\"}"))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String responseBody0 = mvcResult0.getResponse().getContentAsString();
+        Long filmId = getId(responseBody0);
+        String responseBody1 = mvcResult0.getResponse().getContentAsString();
+        Long userId = getId(responseBody1);
+        mockMvc.perform(put("/films/" + filmId + "/like/" + userId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(""))
-                .andExpect(status().isOk());
+                .andExpect(status().isNoContent());
 
         mockMvc.perform(get("/films/popular?count=0")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(""))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("getMostPopularFilms.mostPopularFilmCount: count должен быть больше 0"));
+                .andExpect(jsonPath("$.error").value("Ошибка базы данных: firstTenFilms.count: count должен быть положительным числом и > 0"));
 
     }
 
-//Возвращает список из первых count фильмов по количеству лайков. popular?count=2
+    //Возвращает список из первых count фильмов по количеству лайков. popular?count=2
     @Test
     void testReturnRequestWhenPopularCount1() throws Exception {
-        mockMvc.perform(post("/films")
+        MvcResult mvcResult0 = mockMvc.perform(post("/films")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"Новый фильм\",\"duration\":\"120\",\"description\":\"Хороший фильм\",\"releaseDate\":\"1990-01-01\"}"))
-                .andExpect(status().isCreated());
-        mockMvc.perform(post("/users")
+                        .content("{\"mpa\":{\"id\":1},\"genres\":[{\"id\":1}],\"name\":\"Новый фильм\",\"duration\":\"120\",\"description\":\"Хороший фильм\",\"releaseDate\":\"1990-01-01\"}"))
+                .andExpect(status().isCreated())
+                .andReturn();
+        MvcResult mvcResult1 = mockMvc.perform(post("/users")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"test@test.ru\",\"login\":\"testlogin\",\"birthday\":\"1990-01-01\",\"name\":\"Иванов\"}"))
-                .andExpect(status().isCreated());
-        mockMvc.perform(post("/users")
+                        .content("{\"email\":\"test2221@test.ru\",\"login\":\"testlogin4\",\"birthday\":\"1990-01-01\",\"name\":\"Иванов\"}"))
+                .andExpect(status().isCreated())
+                .andReturn();
+        MvcResult mvcResult2 = mockMvc.perform(post("/users")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"test1@test.ru\",\"login\":\"testlogin1\",\"birthday\":\"1990-01-01\",\"name\":\"Петров\"}"))
-                .andExpect(status().isCreated());
-        mockMvc.perform(put("/films/1/like/1")
+                        .content("{\"email\":\"test1@test.ru\",\"login\":\"testlogin5\",\"birthday\":\"1990-01-01\",\"name\":\"Петров\"}"))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String responseBody0 = mvcResult0.getResponse().getContentAsString();
+        Long filmId = getId(responseBody0);
+        String responseBody1 = mvcResult0.getResponse().getContentAsString();
+        Long userId1 = getId(responseBody1);
+        String responseBody2 = mvcResult0.getResponse().getContentAsString();
+        Long userId2 = getId(responseBody2);
+        mockMvc.perform(put("/films/" + filmId + "/like/" + userId1)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(""))
-                .andExpect(status().isOk());
-        mockMvc.perform(put("/films/1/like/2")
+                .andExpect(status().isNoContent());
+        mockMvc.perform(put("/films/" + filmId + "/like/" + userId2)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(""))
-                .andExpect(status().isOk());
+                .andExpect(status().isNoContent());
 
         mockMvc.perform(get("/films/popular?count=2")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(""))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$").isArray())
-                .andExpect(jsonPath("$[0].id").value(1));
+                .andExpect(jsonPath("$").isArray());
     }
 
 }

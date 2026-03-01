@@ -4,10 +4,10 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
-import ru.yandex.practicum.filmorate.model.User;
+import ru.yandex.practicum.filmorate.dto.request.UserRequestDto;
+import ru.yandex.practicum.filmorate.dto.response.UserResponseDto;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import ru.yandex.practicum.filmorate.service.UserService;
@@ -15,56 +15,49 @@ import ru.yandex.practicum.filmorate.service.UserService;
 import java.net.URI;
 import java.util.List;
 
+
 @RestController
 @RequestMapping("/users")
 @Slf4j
 @Validated
 @RequiredArgsConstructor
 public class UserController {
+
     private final UserService userService;
 
-    @GetMapping("/{id}")
-    public User getUser(@PathVariable("id")
-                        @NotNull(message = "id не может быть null")
-                        @Min(value = 1, message = "id должен быть положительным целым числом")
-                        @Valid Long userId) {
-        return userService.getUserStorage().getUserById(userId);
-    }
-
     @GetMapping
-    public ResponseEntity<List<User>> getAllUsers() {
-        List<User> users = userService.getUserStorage().getAllUsers();
-        if (users.isEmpty()) {
-            return ResponseEntity.noContent().build();
-        }
-        return ResponseEntity.ok().body(users);
+    @ResponseStatus(HttpStatus.OK)
+    public List<UserResponseDto> getUsersAll() {
+        return userService.getUserAll();
     }
 
-    @GetMapping("/{id}/friends")
-    public List<User> getFriendsListOfUser(@PathVariable("id")
-                                           @NotNull(message = "id не может быть null")
-                                           @Min(value = 1, message = "id должен быть положительным целым числом")
-                                           @Valid Long userId) {
-        return userService.getFriendsListOfUser(userId);
-    }
 
+    @GetMapping("/{id}")
+    @ResponseStatus(HttpStatus.OK)
+    public UserResponseDto getUserId(@PathVariable("id")
+                                     @NotNull(message = "id не может быть null")
+                                     @Min(value = 1, message = "id должен быть положительным целым числом")
+                                     @Valid Long userId) {
+        return userService.getUserById(userId);
+}
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public ResponseEntity<User> addUsers(@Valid @RequestBody User user) {
-        User savedUser = userService.getUserStorage().addUser(user);
+    public UserResponseDto addUser(@Valid @RequestBody UserRequestDto user) {
+        UserResponseDto savedUser = userService.addUsers(user);
         URI location = URI.create("/user/" + savedUser.getId());
-        return ResponseEntity.created(location).body(savedUser);
+        return savedUser;
     }
 
     @PutMapping
     @ResponseStatus(HttpStatus.OK)
-    public User updateUser(@Valid @RequestBody User updateUser) {
-        return userService.getUserStorage().updateUser(updateUser);
+    public UserResponseDto  updateUser(@Valid @RequestBody UserRequestDto user) {
+        return userService.updateUsers(user);
     }
 
     @PutMapping("/{id}/friends/{friendId}")
-    public User addFriend(@PathVariable("id")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void addFriend(@PathVariable("id")
                           @NotNull(message = "id не может быть null")
                           @Min(value = 1, message = "id должен быть положительным целым числом")
                           @Valid Long userId,
@@ -72,11 +65,12 @@ public class UserController {
                           @NotNull(message = "id не может быть null")
                           @Min(value = 1, message = "id должен быть положительным целым числом")
                           @Valid Long addedFriendsId) {
-        return userService.addFriend(userId, addedFriendsId);
+        userService.addFriends(userId, addedFriendsId);
     }
 
     @DeleteMapping("/{id}/friends/{friendId}")
-    public User removeFriend(@PathVariable("id")
+    @ResponseStatus(HttpStatus.OK)
+    public void removeFriend(@PathVariable("id")
                              @NotNull(message = "id не может быть null")
                              @Min(value = 1, message = "id должен быть положительным целым числом")
                              @Valid Long userId,
@@ -84,19 +78,28 @@ public class UserController {
                              @NotNull(message = "id не может быть null")
                              @Min(value = 1, message = "id должен быть положительным целым числом")
                              @Valid Long removedFriendsId) {
-        return userService.removeFriend(userId, removedFriendsId);
+        userService.removeFriends(userId, removedFriendsId);
+    }
+
+    @GetMapping("/{id}/friends")
+    @ResponseStatus(HttpStatus.OK)
+    public List<UserResponseDto> getFriendsListOfUser(@PathVariable("id")
+                                                      @NotNull(message = "id не может быть null")
+                                                      @Min(value = 1, message = "id должен быть положительным целым числом")
+                                                      @Valid Long userId) {
+        return userService.getFriendsList(userId);
     }
 
     @GetMapping("/{id}/friends/common/{otherId}")
-    public List<User> getCommonFriends(@PathVariable("id")
-                                       @NotNull(message = "id не может быть null")
-                                       @Min(value = 1, message = "id должен быть положительным целым числом")
-                                       @Valid Long userId,
-                                       @PathVariable("otherId")
-                                       @NotNull(message = "id не может быть null")
-                                       @Min(value = 1, message = "id должен быть положительным целым числом")
-                                       @Valid Long anotherUserId) {
+    @ResponseStatus(HttpStatus.OK)
+    public List<UserResponseDto> getCommonFriends(@PathVariable("id")
+                                                  @NotNull(message = "id не может быть null")
+                                                  @Min(value = 1, message = "id должен быть положительным целым числом")
+                                                  @Valid Long userId,
+                                                  @PathVariable("otherId")
+                                                  @NotNull(message = "id не может быть null")
+                                                  @Min(value = 1, message = "id должен быть положительным целым числом")
+                                                  @Valid Long anotherUserId) {
         return userService.getCommonFriends(userId, anotherUserId);
     }
-
 }
