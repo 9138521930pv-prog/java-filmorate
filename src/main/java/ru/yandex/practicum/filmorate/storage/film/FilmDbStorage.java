@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.dao.DataAccessException;
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
@@ -11,7 +12,9 @@ import org.springframework.stereotype.Component;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.mapper.FilmRowMapper;
+import ru.yandex.practicum.filmorate.mapper.GenreRowMapper;
 import ru.yandex.practicum.filmorate.model.Film;
+import ru.yandex.practicum.filmorate.model.Genre;
 import ru.yandex.practicum.filmorate.storage.genre.GenreStorage;
 import ru.yandex.practicum.filmorate.storage.mpa.MpaStorage;
 
@@ -19,6 +22,7 @@ import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.time.LocalDate;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
@@ -27,72 +31,142 @@ import java.util.*;
 public class FilmDbStorage implements FilmStorage {
     private final JdbcTemplate jdbc;
     private final FilmRowMapper filmRowMapper;
+    private final GenreRowMapper genreRowMapper;
     private final MpaStorage mpaStorage;
     private final GenreStorage genreStorage;
 
     @Override
-    public List<Film> getAllFilm() {
+    public Optional<List<Film>> getAllFilm() {
         String query = """
-                SELECT f.id, f.NAME, f.DESCRIPTION, f.RELEASE_DATE, f.DURATION, f.MPA_ID,
-                       (SELECT '[' ||
-                                                        STRING_AGG(
-                                                            '{"id": ' || b.ID || ', "name": "' ||
-                                                            b.NAME || '"}',
-                                                            ', ' ORDER BY b.ID
-                                                        ) || ']' AS genres_json
-                                                    FROM film_genres a
-                                                    LEFT JOIN genres b ON a.genre_id = b.id
-                       ) AS genre,
-                       (SELECT LISTAGG(l.user_id , ',')
-                          FROM likes l
-                         WHERE l.film_id = f.id
-                       ) AS likes,
-                      '{"id": ' || c.ID || ', "name": "' || c.NAME || '"}' AS mpa
-                  FROM films f
-                  LEFT JOIN mpa c ON f.mpa_id = c.id
-        """;
-        return jdbc.query(query, filmRowMapper);
+                       SELECT f.id,
+                              f.name,
+                              f.description,
+                              f.release_date,
+                              f.duration,
+                              f.mpa_id,
+                              mpa.name AS mpa_name
+                         FROM films AS f
+                        INNER JOIN mpa AS mpa ON f.mpa_id = mpa.id
+                       """;
+        try {
+            List<Film> filmList = jdbc.query(query, filmRowMapper);
+            Map<Long, Film> filmsById = filmList.stream()
+                    .collect(Collectors.toMap(Film::getId, film -> film));
+
+            loadGenresForFilms(filmsById);
+            loadLikesForFilms(filmsById);
+            return Optional.of(filmList);
+        } catch (EmptyResultDataAccessException e) {
+            return Optional.empty();
+        }
     }
 
     @Override
-    public Film getFilmById(Long id) {
+    public Optional<Film> getFilmById(Long id) {
         String query = """
-                SELECT f.id, f.NAME, f.DESCRIPTION, f.RELEASE_DATE, f.DURATION, f.MPA_ID,
-                       (SELECT '[' ||
-                                                                STRING_AGG(
-                                                                    '{"id": ' || b.ID || ', "name": "' ||
-                                                                    b.NAME || '"}',
-                                                                    ', ' ORDER BY b.ID
-                                                                ) || ']' AS genres_json
-                                                            FROM film_genres a
-                                                            LEFT JOIN genres b ON a.genre_id = b.id
-                                                            WHERE a.film_id = f.id
-                       ) AS genre,
-                       (SELECT LISTAGG(l.user_id , ',')
-                          FROM likes l
-                         WHERE l.film_id = f.id
-                       ) AS likes,
-                      '{"id": ' || c.ID || ', "name": "' || c.NAME || '"}' AS mpa
-                  FROM films f
-                  LEFT JOIN mpa c ON f.mpa_id = c.id
-                  WHERE f.id = ?
-        """;
+                       SELECT f.id,
+                              f.name,
+                              f.description,
+                              f.release_date,
+                              f.duration,
+                              f.mpa_id,
+                              mpa.name AS mpa_name
+                         FROM films AS f
+                        INNER JOIN mpa AS mpa ON f.mpa_id = mpa.id
+                        WHERE f.id = ?
+                       """;
+        try {
+            Film film = jdbc.queryForObject(query, filmRowMapper, id);
+            Map<Long, Film> filmsById = Map.of(film.getId(), film);
+            loadGenresForFilms(filmsById);
+            loadLikesForFilms(filmsById);
+            return Optional.of(film);
+        } catch (EmptyResultDataAccessException e) {
+            return Optional.empty();
+        }
+    }
 
-        return  jdbc.queryForObject(query, filmRowMapper, id);
+    @Override
+    public Optional<List<Film>> getTopFilm(Integer count) {
+        final String query = """
+                             SELECT F.ID,
+                                    F.NAME,
+                                    F.DESCRIPTION,
+                                    F.RELEASE_DATE,
+                                    F.DURATION,
+                                    F.MPA_ID,
+                                    M.NAME AS MPA_NAME,
+                                    COUNT(L.USER_ID) AS LIKES_COUNT
+                               FROM FILMS AS F
+                               JOIN MPA AS M ON F.MPA_ID = M.ID
+                               LEFT JOIN LIKES AS L ON F.ID = L.FILM_ID
+                              GROUP BY F.ID, F.NAME, F.DESCRIPTION, F.RELEASE_DATE, F.DURATION, F.MPA_ID, M.NAME
+                              ORDER BY LIKES_COUNT DESC
+                             LIMIT ?
+                             """;
+        try {
+            List<Film> filmList = jdbc.query(query, filmRowMapper, count);
+            Map<Long, Film> filmsById = filmList.stream()
+                    .collect(Collectors.toMap(Film::getId, film -> film));
+            loadGenresForFilms(filmsById);
+            loadLikesForFilms(filmsById);
+            return Optional.of(filmList);
+        } catch (EmptyResultDataAccessException e) {
+             return Optional.empty();
+        }
+    }
+
+    @Override
+    public void validateFilmExists(Long userId) {
+        String query = """
+                       SELECT 1 FROM
+                       films WHERE ID = ?
+                       """;
+        try {
+            jdbc.queryForObject(query, Integer.class, userId);
+            log.info("Фильм с ID: {} найден.", userId);
+        } catch (EmptyResultDataAccessException e) {
+            log.warn("Фильм с ID: {} не найден.", userId);
+            throw new NotFoundException("Фильм с ID " + userId + " не найден");
+        }
+    }
+
+    @Override
+    public void validateLikeExists(Long filmId, Long userId) {
+        String query = """
+                       SELECT 1
+                         FROM likes
+                        WHERE film_id = ?
+                          and user_id = ?
+                       """;
+        try {
+            jdbc.queryForObject(query, Integer.class, filmId, userId);
+        } catch (EmptyResultDataAccessException e) {
+            log.warn("Пользователь с ID: {} не ставил лайк фильму с ID {} найден.", userId, filmId);
+            throw new ValidationException("Пользователь с ID: " + userId + " не ставил лайк фильму с ID " + filmId + " найден.");
+        }
+    }
+
+    @Override
+    public Boolean emptyLike(Long filmId, Long userId) {
+        String query = """
+                       SELECT count(*)
+                         FROM likes
+                        WHERE film_id = ?
+                          and user_id = ?
+                       """;
+
+        Integer cnt = jdbc.queryForObject(query, Integer.class, filmId, userId);
+        return cnt == 0;
     }
 
     @Override
     public Film addFilm(Film film) {
         KeyHolder keyHolder = new GeneratedKeyHolder();
         String query = """
-                INSERT INTO FILMS (
-                    NAME,
-                    DESCRIPTION,
-                    RELEASE_DATE,
-                    DURATION,
-                    MPA_ID
-                ) VALUES (?, ?, ?, ?, ?)
-                """;
+                       INSERT INTO FILMS (NAME, DESCRIPTION, RELEASE_DATE, DURATION, MPA_ID)
+                                  VALUES (?, ?, ?, ?, ?)
+                       """;
         validateFilm(film);
         jdbc.update(connection -> {
             PreparedStatement ps = connection.prepareStatement(query, Statement.RETURN_GENERATED_KEYS);
@@ -118,19 +192,14 @@ public class FilmDbStorage implements FilmStorage {
         // Проверка MPA
         if (film.getMpa() == null) {
             throw new ValidationException("Поле 'mpa' не может быть пустым");
-        }
+       }
 
         if (film.getMpa().getId() == null) {
             throw new ValidationException("ID рейтинга MPA не может быть пустым");
         }
-
-        try {
-            mpaStorage.getMpaById(film.getMpa().getId());
-        } catch (Exception e) {
-            throw new NotFoundException(
-                    String.format("Рейтинг MPA с ID=%d не найден", film.getMpa().getId()));
+        if (film.getMpa() != null && film.getMpa().getId() != null) {
+            mpaStorage.validateMpaExists(film.getMpa().getId());
         }
-
         if (film.getReleaseDate() == null) {
             throw new ValidationException("Дата релиза не может быть пустой");
         }
@@ -152,14 +221,13 @@ public class FilmDbStorage implements FilmStorage {
     @Override
     public Film updateFilm(Film film) {
         String query = """
-                UPDATE FILMS SET
-                	name = ?,
-                	description = ?,
-                	release_date = ?,
-                	duration = ?,
-                	mpa_id = ?
-                WHERE id =?;
-                """;
+                        UPDATE FILMS SET name = ?,
+                          	             description = ?,
+                          	             release_date = ?,
+                          	             duration = ?,
+                          	             mpa_id = ?
+                         WHERE id =?;
+                        """;
         validateFilm(film);
         int updated = jdbc.update(query,
                 film.getName(),
@@ -177,7 +245,11 @@ public class FilmDbStorage implements FilmStorage {
 
     @Override
     public void removeFilm(Long filmId) {
-        String checkQuery = "SELECT COUNT(*) FROM films WHERE film_id = ?";
+        String checkQuery = """
+                            SELECT COUNT(*)
+                              FROM films
+                             WHERE film_id = ?
+                            """;
         int count = jdbc.queryForObject(checkQuery, Integer.class, filmId);
 
         if (count == 0) {
@@ -210,9 +282,9 @@ public class FilmDbStorage implements FilmStorage {
     @Override
     public void addLike(Long filmId, Long userId) {
         String query = """
-                INSERT INTO likes (film_id, user_id)
-                VALUES (?,?)
-                """;
+                       INSERT INTO likes (film_id, user_id)
+                       VALUES (?,?)
+                       """;
         int updated = jdbc.update(query, filmId, userId);
         if (updated == 0) {
             throw new NotFoundException("there is no such film: " + filmId + "or user: " + userId);
@@ -222,43 +294,53 @@ public class FilmDbStorage implements FilmStorage {
     @Override
     public void deleteLike(Long filmId, Long userId) {
         String query = """
-                DELETE FROM likes
-                WHERE film_id = ? AND
-                    user_id = ?
-                """;
+                       DELETE FROM likes
+                       WHERE film_id = ? AND
+                       user_id = ?
+                       """;
         int updated = jdbc.update(query, filmId, userId);
         if (updated == 0) {
             throw new NotFoundException("there is no such film: " + filmId + "or user: " + userId);
         }
     }
 
-    @Override
-    public List<Film> getTopFilm(Integer count) {
-        String query = """
-                SELECT f.id, f.NAME, f.DESCRIPTION, f.RELEASE_DATE, f.DURATION, f.MPA_ID,
-                       (SELECT '[' || LISTAGG('{"id": ' || b.ID || ', "name": "' || b.NAME || '"}', ', ') || ']'
-                          FROM film_genres a
-                          LEFT JOIN genres b ON a.genre_id = b.id
-                         WHERE a.film_id = f.id
-                       ) AS genre,
-                       (SELECT LISTAGG(l.user_id , ',')
-                          FROM likes l
-                         WHERE l.film_id = f.id
-                       ) AS likes,
-                      '{"id": ' || c.ID || ', "name": "' || c.NAME || '"}' AS mpa
-                  FROM films f
-                  JOIN (SELECT film_id,
-                               count(user_id) AS likes_count
-                	      FROM likes
-                	     GROUP BY film_id
-                	     ORDER BY likes_count DESC
-                	     LIMIT ?) AS lc ON f.id = lc.film_id
-                  LEFT JOIN mpa c ON f.mpa_id = c.id
-                 ORDER BY lc.likes_count DESC
-                """;
-        return jdbc.query(query, filmRowMapper, count);
+    private void loadGenresForFilms(Map<Long, Film> filmsById) {
+        if (filmsById.isEmpty()) {
+            return;
+        }
+
+        String placeholders = String.join(",", Collections.nCopies(filmsById.size(), "?"));
+        String query = String.format(
+                "SELECT fg.FILM_ID, g.ID, g.NAME " +
+                        "FROM FILM_GENRES fg " +
+                        "JOIN GENRES g ON g.ID = fg.GENRE_ID " +
+                        "WHERE fg.FILM_ID IN (%s) ",
+                placeholders
+        );
+        jdbc.query(query, resultSet -> {
+            long filmId = resultSet.getLong("FILM_ID");
+            long genreId = resultSet.getInt("ID");
+            String genreName = resultSet.getString("NAME");
+            Genre genre = new Genre(genreId, genreName);
+            filmsById.get(filmId).getGenres().add(genre);
+        }, filmsById.keySet().toArray());
     }
 
+    private void loadLikesForFilms(Map<Long, Film> filmsById) {
+        if (filmsById.isEmpty()) {
+            return;
+        }
+        String addStr = String.join(",", Collections.nCopies(filmsById.size(), "?"));
+        final String query = String.format(
+                "SELECT FILM_ID, USER_ID FROM LIKES WHERE FILM_ID IN (%s)",
+                addStr
+        );
+        jdbc.query(query, resultSet -> {
+            long filmId = resultSet.getLong("FILM_ID");
+            long userId = resultSet.getLong("USER_ID");
+            filmsById.get(filmId).getLikes().add(userId);
+        }, filmsById.keySet().toArray());
+    }
 
     private void saveFilmGenre(Film film) {
         if (film.getGenres() == null || film.getGenres().isEmpty()) {

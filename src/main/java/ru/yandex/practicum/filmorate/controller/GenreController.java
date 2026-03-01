@@ -5,13 +5,10 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-import ru.yandex.practicum.filmorate.dto.response.GenreResponseDto;
+import org.springframework.web.bind.annotation.*;
+import ru.yandex.practicum.filmorate.model.Genre;
 import ru.yandex.practicum.filmorate.service.GenreService;
 
 import java.util.List;
@@ -27,24 +24,19 @@ public class GenreController {
     private final GenreService genreService;
 
     @GetMapping
-    public ResponseEntity<List<GenreResponseDto>> getGenres() {
-        List<GenreResponseDto> genre = genreService.getGenre();
-        if (genre.isEmpty()) {
-            return ResponseEntity.noContent().build();
-        }
-        return ResponseEntity.ok().body(genre);
+    @ResponseStatus(HttpStatus.OK)
+    public List<Genre> getGenres() {
+        return genreService.getGenre();
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<GenreResponseDto> getGenreById(@PathVariable("id")
-                                                         @NotNull(message = "id не может быть null")
-                                                         @Min(value = 1, message = "id должен быть положительным целым числом")
-                                                         @Valid Long id) {
-        GenreResponseDto genre = genreService.getGenreById(id);
-        if (genre == null) {
-            return ResponseEntity.noContent().build();
-        }
-        return ResponseEntity.ok().body(genre);
+    @ResponseStatus(HttpStatus.OK)
+    public Genre getGenreById(@PathVariable("id")
+                              @NotNull(message = "id не может быть null")
+                              @Min(value = 1, message = "id должен быть положительным целым числом")
+                              @Valid Long id) {
+        return genreService.getGenreById(id);
+
     }
 
 }

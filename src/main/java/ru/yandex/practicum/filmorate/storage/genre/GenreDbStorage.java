@@ -5,7 +5,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
-import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.mapper.GenreRowMapper;
 import ru.yandex.practicum.filmorate.model.Genre;
 
@@ -20,21 +19,32 @@ public class GenreDbStorage implements GenreStorage {
     private final JdbcTemplate jdbc;
 
     @Override
-    public List<Genre> getGenre() {
-        String query = "SELECT * FROM genres order by id";
-        return jdbc.query(query, genreRowMapper);
+    public Optional<List<Genre>> getGenre() {
+        String query = """
+                       SELECT *
+                         FROM genres
+                        order by id
+                       """;
+        try {
+            return Optional.of(jdbc.query(query, genreRowMapper));
+        } catch (EmptyResultDataAccessException e) {
+            return Optional.empty();
+        }
     }
 
+
     @Override
-    public Genre getGenreById(Long id) {
-        String query = "SELECT * FROM genres WHERE id = ?";
-        Genre genre;
+    public Optional<Genre> getGenreById(Long id) {
+        String query = """
+                       SELECT ID, NAME
+                         FROM GENRES
+                        WHERE ID = ?
+                       """;
         try {
-            genre =  jdbc.queryForObject(query, genreRowMapper, id);
+            return Optional.of(jdbc.queryForObject(query, genreRowMapper, id));
         } catch (EmptyResultDataAccessException e) {
-            throw new NotFoundException("Жанр с ID= " + id + " не найден");
+            return Optional.empty();
         }
-        return genre;
     }
 
     @Override
@@ -43,10 +53,10 @@ public class GenreDbStorage implements GenreStorage {
 
         String inSql = filmIds.stream().map(id -> "?").collect(Collectors.joining(","));
         String query = """
-                SELECT fg.film_id, g.id, g.name
-                FROM film_genre fg
-                JOIN film_genres g ON g.id = fg.genre_id
-                WHERE fg.film_id IN (""" + inSql + ") ORDER BY fg.film_id, g.id";
+                       SELECT fg.film_id, g.id, g.name
+                         FROM film_genre fg
+                         JOIN film_genres g ON g.id = fg.genre_id
+                        WHERE fg.film_id IN (""" + inSql + ") ORDER BY fg.film_id, g.id";
 
         Object[] params = filmIds.toArray();
         return jdbc.query(query, rs -> {
@@ -62,13 +72,22 @@ public class GenreDbStorage implements GenreStorage {
 
     @Override
     public void setGenreToFilm(Long genreId, Long filmId) {
-        String query = "INSERT INTO film_genres (genre_id, film_id) VALUES (?,?)";
+        String query = """
+                       INSERT INTO film_genres (genre_id, film_id)
+                                        VALUES (?,?)
+                       """;
         jdbc.update(query, genreId, filmId);
     }
 
     @Override
     public Set<Genre> getGenresByFilmId(Long id) {
-        String query = "SELECT * FROM film_genres WHERE id IN (SELECT genre_id FROM film_genre WHERE film_id = ?)";
+        String query = """
+                       SELECT *
+                         FROM film_genres
+                        WHERE id IN (SELECT genre_id
+                                       FROM film_genre
+                                      WHERE film_id = ?)
+                       """;
         List<Genre> genres = jdbc.query(query, genreRowMapper, id);
         return new HashSet<>(genres);
     }
@@ -76,10 +95,13 @@ public class GenreDbStorage implements GenreStorage {
 
     @Override
     public List<Long> getGenreIds() {
-        List<Genre> genres = getGenre();
-        return genres.stream()
-                .map(Genre::getId).filter(Objects::nonNull).toList();
+        String query = """
+                       SELECT id
+                         FROM genres
+                        ORDER BY id
+                       """;
+        return jdbc.query(query, (rs, rowNum) -> rs.getLong("id"))
+                .stream()
+                .toList();
     }
-
-
 }

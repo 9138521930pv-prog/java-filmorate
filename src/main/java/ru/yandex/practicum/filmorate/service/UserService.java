@@ -27,11 +27,17 @@ public class UserService {
     }
 
     public List<UserResponseDto> getUserAll() {
-        return userStorage.getAllUsers().stream().map(UserMapper::convertToDto).toList();
+        return userStorage.getAllUsers()
+               .map(users -> users.stream()
+                       .map(UserMapper::convertToDto)
+                       .toList())
+               .orElseThrow(() -> new NotFoundException("Пользователь не найден"));
     }
 
     public UserResponseDto getUserById(Long userId) {
-        return UserMapper.convertToDto(userStorage.getUserById(userId));
+        return userStorage.getUserById(userId)
+                .map(UserMapper::convertToDto)
+                .orElseThrow(() -> new NotFoundException("Пользователь не найден"));
     }
 
     public UserResponseDto addUsers(UserRequestDto user) {
@@ -40,24 +46,24 @@ public class UserService {
     }
 
     public UserResponseDto updateUsers(UserRequestDto user) {
-        userIdIsValid(user.getId());
+        userStorage.validateUserExists(user.getId());
         return UserMapper.convertToDto(userStorage.updateUser(UserMapper.convertToEntity(user)));
     }
 
     public void addFriends(Long userId, Long friendId) {
-        userIdIsValid(userId);
-        userIdIsValid(friendId);
+        userStorage.validateUserExists(userId);
+        userStorage.validateUserExists(friendId);
         userStorage.addFriend(userId, friendId);
     }
 
     public void removeFriends(Long userId, Long friendId) {
-        userIdIsValid(userId);
-        userIdIsValid(friendId);
+        userStorage.validateUserExists(userId);
+        userStorage.validateUserExists(friendId);
         userStorage.removeFriend(userId, friendId);
     }
 
     public List<UserResponseDto> getFriendsList(Long userId) {
-        userIdIsValid(userId);
+        userStorage.validateUserExists(userId);
         Collection<User> friends = userStorage.getFriends(userId);
 
         return friends.stream()
@@ -73,10 +79,4 @@ public class UserService {
         return friends.stream().map(UserMapper::convertToDto).toList();
     }
 
-    public void userIdIsValid(Long id) {
-        User user = userStorage.getUserById(id);
-        if (user == null) {
-            throw new NotFoundException("Пользователь с ID: " + id + " не найден в базе данных");
-        }
-    }
 }

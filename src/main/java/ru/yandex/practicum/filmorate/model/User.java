@@ -11,9 +11,9 @@ import java.util.HashSet;
 import java.util.Set;
 
 @Data
-@Builder
-@AllArgsConstructor
 @NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class User {
     private final Set<Long> friendsId = new HashSet<>();
     private Long id;

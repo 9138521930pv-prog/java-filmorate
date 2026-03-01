@@ -3,8 +3,9 @@ package ru.yandex.practicum.filmorate.service;
 import lombok.Getter;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
-import ru.yandex.practicum.filmorate.mapper.MpaMapper;
-import ru.yandex.practicum.filmorate.dto.response.MpaResponseDto;
+import ru.yandex.practicum.filmorate.exception.NoContentException;
+import ru.yandex.practicum.filmorate.exception.NotFoundException;
+import ru.yandex.practicum.filmorate.model.Mpa;
 import ru.yandex.practicum.filmorate.storage.mpa.MpaDbStorage;
 
 import java.util.List;
@@ -21,12 +22,12 @@ public class MpaService {
         this.mpaStorage = mpaStorage;
     }
 
-    public List<MpaResponseDto> getAllMpa() {
-        return mpaStorage.getRatings().stream().map(MpaMapper::convertToDto).toList();
+    public List<Mpa> getAllMpa() {
+        return mpaStorage.getRatings().orElseThrow(() -> new NoContentException("Список MPA пуст"));
     }
 
-    public MpaResponseDto getMpaById(Long id) {
-        return MpaMapper.convertToDto(mpaStorage.getMpaById(id));
+    public Mpa getMpaById(Long id) {
+        return mpaStorage.getMpaById(id).orElseThrow(() -> new NotFoundException("MPA рейтинг с id= " + id + " не найден"));
     }
 
 }

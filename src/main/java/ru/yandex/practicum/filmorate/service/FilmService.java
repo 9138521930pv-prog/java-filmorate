@@ -4,12 +4,11 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
-import ru.yandex.practicum.filmorate.dto.request.FilmRequestDto;
-import ru.yandex.practicum.filmorate.dto.response.FilmResponseDto;
-import ru.yandex.practicum.filmorate.exception.ValidationException;
-import ru.yandex.practicum.filmorate.mapper.FilmMapper;
+import ru.yandex.practicum.filmorate.exception.NoContentException;
+
+import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.model.Film;
-import ru.yandex.practicum.filmorate.model.User;
+
 import ru.yandex.practicum.filmorate.storage.film.FilmDbStorage;
 import ru.yandex.practicum.filmorate.storage.film.FilmStorage;
 import ru.yandex.practicum.filmorate.storage.genre.GenreDbStorage;
@@ -42,62 +41,51 @@ public class FilmService {
         this.userStorage = userStorage;
     }
 
-    public List<FilmResponseDto> getFilmAll() {
-        return filmStorage.getAllFilm().stream().map(FilmMapper::convertToDto).toList();
+    public List<Film> getFilmAll() {
+        return filmStorage.getAllFilm().orElseThrow(() -> new NoContentException("Фильм не найден."));
     }
 
-    public FilmResponseDto getFilmById(Long filmId) {
-        return FilmMapper.convertToDto(filmStorage.getFilmById(filmId));
+    public Film getFilmById(long id) {
+        return filmStorage.getFilmById(id).orElseThrow(() -> new NotFoundException("Фильм не найден."));
     }
 
-    public FilmResponseDto addFilm(FilmRequestDto filmRequestDto) {
-        Film film = FilmMapper.convertToEntity(filmRequestDto);
-        return FilmMapper.convertToDto(filmStorage.addFilm(film));
+    public List<Film> getTopFilms(Integer count) {
+        return filmStorage.getTopFilm(count).orElseThrow(() -> new NoContentException("Фильм не найден."));
     }
 
-    public FilmResponseDto updateFilm(FilmRequestDto film) {
-        return FilmMapper.convertToDto(filmStorage.updateFilm(FilmMapper.convertToEntity(film)));
+    public Film addFilm(Film film) {
+        return filmStorage.addFilm(film);
+    }
+
+    public Film updateFilm(Film film) {
+        return filmStorage.updateFilm(film);
     }
 
     public void addLike(Long filmId, Long userId) {
         log.info("Добавление лайка: фильм {}, пользователь {}", filmId, userId);
-
-        Film film = filmStorage.getFilmById(filmId);
-        User user = userStorage.getUserById(userId);
-
-        if (film.getLikes().contains(userId)) {
-            throw new ValidationException("Пользователь уже поставил лайк этому фильму");
+        filmStorage.validateFilmExists(filmId);
+        userStorage.validateUserExists(userId);
+        if (filmStorage.emptyLike(filmId, userId)) {
+            filmStorage.addLike(filmId, userId);
+            log.info("Лайк успешно добавлен: фильм {}, пользователь {}", filmId, userId);
         }
-
-        filmStorage.addLike(filmId, userId);
-        log.info("Лайк успешно добавлен: фильм {}, пользователь {}", filmId, userId);
     }
 
     public void delLike(Long filmId, Long userId) {
         log.info("Удаление лайка: фильм {}, пользователь {}", filmId, userId);
 
-        Film film = filmStorage.getFilmById(filmId);
-        User user = userStorage.getUserById(userId);
-
-        if (!film.getLikes().contains(userId)) {
-            throw new ValidationException("Пользователь не ставил лайк этому фильму");
+        filmStorage.validateFilmExists(filmId);
+        userStorage.validateUserExists(userId);
+        if (!filmStorage.emptyLike(filmId, userId)) {
+            filmStorage.deleteLike(filmId, userId);
+            log.info("Лайк успешно удалён: фильм {}, пользователь {}", filmId, userId);
         }
-
-        filmStorage.deleteLike(filmId, userId);
-        log.info("Лайк успешно удалён: фильм {}, пользователь {}", filmId, userId);
     }
 
     public void removeFilm(Long filmId) {
         log.info("Удаление фильмаЖ {}", filmId);
-
-        Film film = filmStorage.getFilmById(filmId);
-
-        filmStorage.removeFilm(film.getId());
+        filmStorage.validateFilmExists(filmId);
+        filmStorage.removeFilm(filmId);
         log.info("Фильм {} успешно удалён", filmId);
-    }
-
-
-    public List<FilmResponseDto> getTopFilms(Integer count) {
-        return filmStorage.getTopFilm(count).stream().map(FilmMapper::convertToDto).toList();
     }
 }

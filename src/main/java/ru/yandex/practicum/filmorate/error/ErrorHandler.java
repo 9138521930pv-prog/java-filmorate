@@ -9,6 +9,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import ru.yandex.practicum.filmorate.exception.NoContentException;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 
@@ -58,6 +59,13 @@ public class ErrorHandler {
         log.info("Нарушение целостности данных: {}", e.getMessage());
         String causeMessage = e.getCause() != null ? e.getCause().getMessage() : e.getMessage();
         return Map.of("error", "Конфликт данных", "message", "Нарушение целостности данных: " + causeMessage);
+    }
+
+    @ExceptionHandler(NoContentException.class)
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public Map<String, String> handleNoContentException(final DuplicateKeyException e) {
+        log.info("Нет данных для просмотра: {}", e.getMessage());
+        return Map.of("error", "Нет данных для просмотра", "message", e.getMessage());
     }
 
     @ExceptionHandler(DuplicateKeyException.class)
