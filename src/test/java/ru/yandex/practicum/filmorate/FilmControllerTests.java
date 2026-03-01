@@ -201,7 +201,7 @@ public class FilmControllerTests {
         Long filmId = getId(responseBody);
         MvcResult mvcResult1 = mockMvc.perform(put("/films")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"mpa\":{\"id\":1},\"genres\":[{\"id\":1}],\"id\":\""+ filmId +"\",\"name\":\"Очень новый фильм\",\"duration\":\"125\",\"description\":\"Очень хороший фильм\",\"releaseDate\":\"2025-01-01\"}"))
+                        .content("{\"mpa\":{\"id\":1},\"genres\":[{\"id\":1}],\"id\":\"" + filmId + "\",\"name\":\"Очень новый фильм\",\"duration\":\"125\",\"description\":\"Очень хороший фильм\",\"releaseDate\":\"2025-01-01\"}"))
                 .andExpect(status().isOk())
                 .andReturn();
 
@@ -232,7 +232,7 @@ public class FilmControllerTests {
         Long userId = getId(responseBody1);
 
 
-        mockMvc.perform(put("/films/"+ filmId + "/like/" + userId)
+        mockMvc.perform(put("/films/" + filmId + "/like/" + userId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(""))
                 .andExpect(status().isNoContent());
@@ -256,11 +256,11 @@ public class FilmControllerTests {
         Long filmId = getId(responseBody0);
         String responseBody1 = mvcResult0.getResponse().getContentAsString();
         Long userId = getId(responseBody1);
-        mockMvc.perform(put("/films/"+ filmId + "/like/" + userId)
+        mockMvc.perform(put("/films/" + filmId + "/like/" + userId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(""))
                 .andExpect(status().isNoContent());
-        mockMvc.perform(delete("/films/"+ filmId + "/like/" + userId)
+        mockMvc.perform(delete("/films/" + filmId + "/like/" + userId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(""))
                 .andExpect(status().isOk());
@@ -283,7 +283,7 @@ public class FilmControllerTests {
         Long filmId = getId(responseBody0);
         String responseBody1 = mvcResult0.getResponse().getContentAsString();
         Long userId = getId(responseBody1);
-        mockMvc.perform(put("/films/"+ filmId + "/like/" + userId)
+        mockMvc.perform(put("/films/" + filmId + "/like/" + userId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(""))
                 .andExpect(status().isNoContent());
@@ -320,11 +320,11 @@ public class FilmControllerTests {
         Long userId1 = getId(responseBody1);
         String responseBody2 = mvcResult0.getResponse().getContentAsString();
         Long userId2 = getId(responseBody2);
-        mockMvc.perform(put("/films/"+ filmId + "/like/" + userId1)
+        mockMvc.perform(put("/films/" + filmId + "/like/" + userId1)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(""))
                 .andExpect(status().isNoContent());
-        mockMvc.perform(put("/films/"+ filmId + "/like/" + userId2)
+        mockMvc.perform(put("/films/" + filmId + "/like/" + userId2)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(""))
                 .andExpect(status().isNoContent());
