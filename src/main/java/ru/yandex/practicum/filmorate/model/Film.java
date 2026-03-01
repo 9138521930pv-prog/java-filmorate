@@ -36,6 +36,11 @@ public class Film {
         return releaseDate == null || !releaseDate.isBefore(LocalDate.of(1895, 12, 28));
     }
 
+    @AssertTrue(message = "Дата выхода не может быть в будущем")
+    private boolean isReleaseDateNotInFuture() {
+        return releaseDate == null || !releaseDate.isAfter(LocalDate.now());
+    }
+
     public void addLike(Long userId) {
         likes.add(userId);
     }

@@ -1,5 +1,6 @@
 package ru.yandex.practicum.filmorate.controller;
 
+import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.DuplicateKeyException;
@@ -96,4 +97,12 @@ public class ErrorHandler {
         return Map.of("error", "Внутренняя ошибка сервера",
                 "message", "Произошла непредвиденная ошибка");
     }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public Map<String, String> handleValidationException(ConstraintViolationException e) {
+        log.error("Внутренняя ошибка валидации: {}", e.getMessage(), e);
+        return Map.of("error", "Ошибка базы данных: " + e.getMessage());
+    }
+
 }

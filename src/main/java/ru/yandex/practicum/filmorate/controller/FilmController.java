@@ -40,7 +40,7 @@ public class FilmController {
     @ResponseStatus(HttpStatus.CREATED)
     public ResponseEntity<Film> addFilm(@Valid @RequestBody Film film) {
         Film savedFilm = filmService.addFilm(film);
-        URI location = URI.create("/flims/" + savedFilm.getId());
+        URI location = URI.create("/films/" + savedFilm.getId());
         return ResponseEntity.created(location).body(savedFilm);
     }
 
@@ -86,7 +86,9 @@ public class FilmController {
     }
 
     @GetMapping("/popular")
-    public List<Film> firstTenFilms(@RequestParam(value = "count", required = false, defaultValue = "10") Integer count) {
+    public List<Film> firstTenFilms(@RequestParam(value = "count", required = false, defaultValue = "10")
+                                    @Min(value = 1, message = "count должен быть положительным числом и > 0")
+                                    Integer count) {
         return filmService.getTopFilms(count);
     }
 }
