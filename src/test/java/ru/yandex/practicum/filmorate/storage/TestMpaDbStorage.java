@@ -42,5 +42,6 @@ class TestMpaDbStorage {
 
         Mpa mpa = mpaDbStorage.getMpaById(1L)
                 .orElseThrow(() -> new AssertionError("Mpa with ID 1 not found"));
-        assertThat(mpa.getName()).isEqualTo("G");    }
+        assertThat(mpa.getName()).isEqualTo("G");
+    }
 }
