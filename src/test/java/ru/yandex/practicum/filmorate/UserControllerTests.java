@@ -251,6 +251,7 @@ public class UserControllerTests {
         }
 
     }
+
     // Удаление друга
     @Test
     void testReturnRequestWhenDelFriend() throws Exception {

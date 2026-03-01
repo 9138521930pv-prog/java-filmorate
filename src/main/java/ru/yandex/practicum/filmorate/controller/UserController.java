@@ -22,6 +22,7 @@ import java.util.List;
 @Validated
 @RequiredArgsConstructor
 public class UserController {
+
     private final UserService userService;
 
     @GetMapping
@@ -66,8 +67,6 @@ public class UserController {
                           @Valid Long addedFriendsId) {
         userService.addFriends(userId, addedFriendsId);
     }
-
-
 
     @DeleteMapping("/{id}/friends/{friendId}")
     @ResponseStatus(HttpStatus.OK)
